@@ -1,0 +1,22 @@
+modLoader="javafml"
+loaderVersion="[30,)"
+[[mods]]
+modId="vm"
+version="${file.jarVersion}"
+displayName="Vending Machine"
+displayURL="https://www.curseforge.com/minecraft/mc-mods/vending-machine"
+logoFile="logo.png"
+authors="Lupicus, MacTso"
+description='''Vending Machine Mod'''
+[[dependencies.vm]]
+    modId="forge"
+    mandatory=true
+    versionRange="[30,)"
+    ordering="NONE"
+    side="BOTH"
+[[dependencies.vm]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.15.1,1.16)"
+    ordering="NONE"
+    side="BOTH"

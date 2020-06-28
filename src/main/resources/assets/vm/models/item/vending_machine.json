@@ -1,0 +1,54 @@
+{
+	"parent": "block/block",
+	"textures": {
+    	"front": "vm:block/vending_machine",
+    	"glass": "minecraft:block/glass",
+    	"side": "vm:block/vending_machine_side",
+    	"side1": "vm:block/vending_machine_side1",
+    	"back": "vm:block/vending_machine_back",
+    	"leg": "vm:block/vending_machine_leg"
+	},
+    "elements": [
+        {   "from": [ 4, 0, 4 ],
+            "to": [ 12, 16, 12 ],
+            "faces": {
+                "north": { "uv": [ 0, 1, 16, 16 ], "texture": "#glass" },
+                "south": { "uv": [ 0, 0, 16, 16 ], "texture": "#back", "cullface": "south" }
+            }
+        },
+        {   "from": [ 4, 0, 4 ],
+            "to": [ 12, 0, 12 ],
+            "faces": {
+                "down":  { "uv": [ 0, 16, 16, 0 ], "texture": "#side1" },
+                "up":    { "uv": [ 0, 0, 16, 16 ], "texture": "#side1" }
+            }
+        },
+        {   "from": [ 4, 16, 4 ],
+            "to": [ 12, 16, 12 ],
+            "faces": {
+                "up":    { "uv": [ 0, 0, 16, 16 ], "texture": "#side1" },
+                "down":  { "uv": [ 0, 16, 16, 0 ], "texture": "#side1" }
+            }
+        },
+        {   "from": [ 12, 0, 4 ],
+            "to": [ 12, 16, 12 ],
+            "faces": {
+                "west":  { "uv": [ 0, 0, 16, 16 ], "texture": "#side" },
+                "east":  { "uv": [ 16, 0, 0, 16 ], "texture": "#side" }
+            }
+        },
+        {   "from": [ 4, 0, 4 ],
+            "to": [ 4, 16, 12 ],
+            "faces": {
+                "west":  { "uv": [ 0, 0, 16, 16 ], "texture": "#side" },
+                "east":  { "uv": [ 16, 0, 0, 16 ], "texture": "#side" }
+            }
+        },
+        {   "from": [ 4, 0, 5 ],
+            "to": [ 12, 16, 12 ],
+            "faces": {
+                "north": { "uv": [ 0, 0, 16, 16 ], "texture": "#front" }
+            }
+        }
+    ]
+}
