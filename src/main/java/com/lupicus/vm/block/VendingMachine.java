@@ -35,9 +35,12 @@ public class VendingMachine extends RotateContainerBase
 		setDefaultState(this.stateContainer.getBaseState().with(HORIZONTAL_FACING, Direction.NORTH).with(BOTTOM, true));
 	}
 
-	@Override
-	public boolean isNormalCube(BlockState state, IBlockReader worldIn, BlockPos pos) {
+	public static boolean isNormalCube(BlockState state, IBlockReader worldIn, BlockPos pos) {
 		return false;
+	}
+
+	public static int lightValue(BlockState state) {
+		return 8;
 	}
 
 	@Override

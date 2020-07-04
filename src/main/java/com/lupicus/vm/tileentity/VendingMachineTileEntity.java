@@ -7,6 +7,7 @@ import com.lupicus.vm.block.ModBlocks;
 import com.lupicus.vm.config.MyConfig;
 import com.lupicus.vm.sound.ModSounds;
 
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.merchant.IMerchant;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
@@ -44,14 +45,14 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 	}
 
 	@Override
-	public void read(CompoundNBT compound)
+	public void func_230337_a_(BlockState state, CompoundNBT compound) // read
 	{
 		stockTime = compound.getLong("stockTime");
 		fixed = compound.getBoolean("fixed");
 		offers = new MerchantOffers(compound);
 		if (offers.isEmpty())
 			offers = null;
-		super.read(compound);
+		super.func_230337_a_(state, compound);
 	}
 
 	@Override
