@@ -11,11 +11,13 @@ import org.apache.logging.log4j.Logger;
 
 import com.lupicus.vm.Main;
 
+import net.minecraft.entity.EntityType;
 import net.minecraft.item.DyeColor;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.Items;
 import net.minecraft.item.Rarity;
+import net.minecraft.item.SpawnEggItem;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
@@ -302,6 +304,43 @@ public class MyConfig
 				}
 			}
 		}
+		else if (name.startsWith("eggset*"))
+		{
+			String mode = name.substring(7);
+			if (mode.equals("all"))
+			{
+				ret.clear();
+				for (SpawnEggItem e : SpawnEggItem.getEggs())
+				{
+					ResourceLocation res = e.getRegistryName();
+					ret.add(res.toString());
+				}
+			}
+			else if (mode.equals("monster"))
+			{
+				ret.clear();
+				for (SpawnEggItem e : SpawnEggItem.getEggs())
+				{
+					EntityType<?> type = e.getType(null);
+					if (type.getClassification().getPeacefulCreature())
+						continue;
+					ResourceLocation res = e.getRegistryName();						
+					ret.add(res.toString());
+				}
+			}
+			else if (mode.equals("peaceful"))
+			{
+				ret.clear();
+				for (SpawnEggItem e : SpawnEggItem.getEggs())
+				{
+					EntityType<?> type = e.getType(null);
+					if (!type.getClassification().getPeacefulCreature())
+						continue;
+					ResourceLocation res = e.getRegistryName();						
+					ret.add(res.toString());
+				}
+			}
+		}
 		return ret;
 	}
 
@@ -358,12 +397,12 @@ public class MyConfig
 			excludeMods = builder
 					.comment("Exclude Mods")
 					.translation(sectionTrans + "exclude_mods")
-					.define("ExcludeMods", "draconicevolution;avaritia");
+					.define("ExcludeMods", "draconicevolution;avaritia;botania");
 
 			excludeItems = builder
 					.comment("Exclude Items")
 					.translation(sectionTrans + "exclude_items")
-					.define("ExcludeItems", "minecraft:nether_star;minecraft:beacon;minecraft:shulker_box;minecraft:colorset*shulker_box;minecraft:elytra;minecraft:end_portal_frame;vm:vending_machine");
+					.define("ExcludeItems", "minecraft:nether_star;minecraft:beacon;minecraft:bedrock;minecraft:shulker_box;minecraft:colorset*shulker_box;minecraft:elytra;minecraft:end_portal_frame;minecraft:armorset*netherite;minecraft:toolset*netherite;minecraft:netherite_block;minecraft:netherite_ingot;vm:vending_machine");
 
 			includeGroups = builder
 					.comment("Include Creative Tab Groups")
@@ -378,7 +417,7 @@ public class MyConfig
 			itemRarity = builder
 					.comment("Change item rarity value for pricing")
 					.translation(sectionTrans + "item_rarity")
-					.define("ItemRarity", "minecraft:emerald_block=1;minecraft:diamond_block=1;minecraft:armorset*diamond=1;minecraft:toolset*diamond=1");
+					.define("ItemRarity", "minecraft:emerald_block=1;minecraft:diamond_block=1;minecraft:armorset*diamond=1;minecraft:toolset*diamond=1;minecraft:anvil=2;minecraft:trident=3;eggset*peaceful=1;eggset*monster=2;minecraft:evoker_spawn_egg=3;minecraft:netherite_scrap=2;minecraft:ancient_debris=2");
 
 			builder.push("RarityData");
 			sectionTrans = baseTrans + ".rarity.";
