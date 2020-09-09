@@ -1,6 +1,7 @@
 package com.lupicus.vm.tileentity;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 
 import com.lupicus.vm.block.ModBlocks;
@@ -164,6 +165,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 			filterGroups(set);
 		if (!MyConfig.includeModSet.contains("*") || !MyConfig.excludeModSet.isEmpty())
 			filterMods(set);
+		filterRarity(set);
 		if (set.isEmpty())
 			set.add(Items.AIR);
 		Item[] values = set.toArray(new Item[0]);
@@ -191,7 +193,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 				if (tryCount < RETRIES)
 					continue;
 				stack.setCount(0);
-				payment = itemPayment(Rarity.COMMON);
+				payment = itemPayment(defRarity());
 				maxUses = 1;
 			}
 			else
@@ -208,6 +210,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 	private void configOffers()
 	{
 		int maxUses;
+		ItemStack payment;
 
 		offers = new MerchantOffers();
 		NonNullList<ItemStack> items = NonNullList.create();
@@ -223,18 +226,27 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 				stack = items.get(this.world.rand.nextInt(items.size()));
 			else
 				stack = new ItemStack(item);
-			Rarity rarity = MyConfig.itemRarityMap.get(item);
-			if (rarity == null)
-				rarity = item.getRarity(stack);
-			ItemStack payment = itemPayment(rarity);
-			if (payment.isEmpty())
+			if (MyConfig.fixedExtended[i])
 			{
-				payment = itemPayment(Rarity.EPIC);
-				maxUses = itemUses(Rarity.EPIC);
+				stack.grow(MyConfig.fixedAmount[i] - 1);
+				maxUses = MyConfig.fixedUses[i];
+				payment = MyConfig.fixedPayment[i];
 			}
 			else
 			{
-				maxUses = itemUses(rarity);
+				Rarity rarity = MyConfig.itemRarityMap.get(item);
+				if (rarity == null)
+					rarity = item.getRarity(stack);
+				payment = itemPayment(rarity);
+				if (payment.isEmpty())
+				{
+					payment = itemPayment(Rarity.EPIC);
+					maxUses = itemUses(Rarity.EPIC);
+				}
+				else
+				{
+					maxUses = itemUses(rarity);
+				}
 			}
 			MerchantOffer offer = new MerchantOffer(payment, stack, maxUses, 0, 0);
 			offers.add(offer);
@@ -280,6 +292,52 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		});
 	}
 
+	private void filterRarity(Collection<Item> set)
+	{
+		ItemStack stack = new ItemStack(Items.AIR);
+		HashMap<Item, Rarity> map = MyConfig.itemRarityMap;
+		if (MyConfig.commonCost == 0)
+		{
+			set.removeIf(item ->
+			{
+				Rarity rarity = map.get(item);
+				if (rarity == null)
+					rarity = item.getRarity(stack);
+				return (rarity == Rarity.COMMON);
+			});
+		}
+		if (MyConfig.uncommonCost == 0)
+		{
+			set.removeIf(item ->
+			{
+				Rarity rarity = map.get(item);
+				if (rarity == null)
+					rarity = item.getRarity(stack);
+				return (rarity == Rarity.UNCOMMON);
+			});
+		}
+		if (MyConfig.rareCost == 0)
+		{
+			set.removeIf(item ->
+			{
+				Rarity rarity = map.get(item);
+				if (rarity == null)
+					rarity = item.getRarity(stack);
+				return (rarity == Rarity.RARE);
+			});
+		}
+		if (MyConfig.epicCost == 0)
+		{
+			set.removeIf(item ->
+			{
+				Rarity rarity = map.get(item);
+				if (rarity == null)
+					rarity = item.getRarity(stack);
+				return (rarity == Rarity.EPIC);
+			});
+		}
+	}
+
 	private boolean invalidItem(Item item)
 	{
 		if (item instanceof OperatorOnlyItem)
@@ -304,6 +362,17 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 			return true;
 
 		return false;
+	}
+
+	private Rarity defRarity()
+	{
+		if (MyConfig.commonCost > 0)
+			return Rarity.COMMON;
+		if (MyConfig.uncommonCost > 0)
+			return Rarity.UNCOMMON;
+		if (MyConfig.rareCost > 0)
+			return Rarity.RARE;
+		return Rarity.EPIC;
 	}
 
 	private ItemStack itemPayment(Rarity type)
