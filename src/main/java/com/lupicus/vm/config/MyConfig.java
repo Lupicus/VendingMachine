@@ -15,6 +15,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.item.DyeColor;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.Rarity;
 import net.minecraft.item.SpawnEggItem;
@@ -34,13 +35,13 @@ import net.minecraftforge.registries.IForgeRegistry;
 public class MyConfig
 {
 	private static final Logger LOGGER = LogManager.getLogger();
-	public static final Server SERVER;
-	public static final ForgeConfigSpec SERVER_SPEC;
+	public static final Common COMMON;
+	public static final ForgeConfigSpec COMMON_SPEC;
 	static
 	{
-		final Pair<Server, ForgeConfigSpec> specPair = new ForgeConfigSpec.Builder().configure(Server::new);
-		SERVER_SPEC = specPair.getRight();
-		SERVER = specPair.getLeft();
+		final Pair<Common, ForgeConfigSpec> specPair = new ForgeConfigSpec.Builder().configure(Common::new);
+		COMMON_SPEC = specPair.getRight();
+		COMMON = specPair.getLeft();
 	}
 
 	public static boolean restock;
@@ -63,12 +64,16 @@ public class MyConfig
 	public static Item uncommonItem;
 	public static Item rareItem;
 	public static Item epicItem;
+	public static boolean[] fixedExtended = new boolean[7];
 	public static Item[] fixedItems = new Item[7];
+	public static int[] fixedAmount = new int[7];
+	public static int[] fixedUses = new int[7];
+	public static ItemStack[] fixedPayment = new ItemStack[7];
 
 	@SubscribeEvent
 	public static void onModConfigEvent(final ModConfig.ModConfigEvent configEvent)
 	{
-		if (configEvent.getConfig().getSpec() == MyConfig.SERVER_SPEC)
+		if (configEvent.getConfig().getSpec() == MyConfig.COMMON_SPEC)
 		{
 			bakeConfig();
 		}
@@ -76,27 +81,27 @@ public class MyConfig
 
 	public static void bakeConfig()
 	{
-		restock = SERVER.restock.get();
-		fixed = SERVER.fixed.get();
-		commonCost = SERVER.commonCost.get();
-		uncommonCost = SERVER.uncommonCost.get();
-		rareCost = SERVER.rareCost.get();
-		epicCost = SERVER.epicCost.get();
-		commonUses = SERVER.commonUses.get();
-		uncommonUses = SERVER.uncommonUses.get();
-		rareUses = SERVER.rareUses.get();
-		epicUses = SERVER.epicUses.get();
-		commonItem = getItem(SERVER.commonItem.get());
-		uncommonItem = getItem(SERVER.uncommonItem.get());
-		rareItem = getItem(SERVER.rareItem.get());
-		epicItem = getItem(SERVER.epicItem.get());
-		extractFixed(extract(SERVER.fixedItems.get()));
-		includeModSet = stringSet(extract(SERVER.includeMods.get()));
-		excludeModSet = stringSet(extract(SERVER.excludeMods.get()));
-		excludeItemSet = itemSet(extract(SERVER.excludeItems.get()));
-		includeGroupSet = stringSet(extract(SERVER.includeGroups.get()));
-		excludeGroupSet = stringSet(extract(SERVER.excludeGroups.get()));
-		itemRarityMap = itemMap(extract(SERVER.itemRarity.get()));
+		restock = COMMON.restock.get();
+		fixed = COMMON.fixed.get();
+		commonCost = COMMON.commonCost.get();
+		uncommonCost = COMMON.uncommonCost.get();
+		rareCost = COMMON.rareCost.get();
+		epicCost = COMMON.epicCost.get();
+		commonUses = COMMON.commonUses.get();
+		uncommonUses = COMMON.uncommonUses.get();
+		rareUses = COMMON.rareUses.get();
+		epicUses = COMMON.epicUses.get();
+		commonItem = getItem(COMMON.commonItem.get());
+		uncommonItem = getItem(COMMON.uncommonItem.get());
+		rareItem = getItem(COMMON.rareItem.get());
+		epicItem = getItem(COMMON.epicItem.get());
+		extractFixed(extract(COMMON.fixedItems.get()));
+		includeModSet = stringSet(extract(COMMON.includeMods.get()));
+		excludeModSet = stringSet(extract(COMMON.excludeMods.get()));
+		excludeItemSet = itemSet(extract(COMMON.excludeItems.get()));
+		includeGroupSet = stringSet(extract(COMMON.includeGroups.get()));
+		excludeGroupSet = stringSet(extract(COMMON.excludeGroups.get()));
+		itemRarityMap = itemMap(extract(COMMON.itemRarity.get()));
 		validateMods(includeModSet, "IncludeMods");
 		validateMods(excludeModSet, "ExcludeMods");
 		validateGroups(includeGroupSet, "IncludeGroups");
@@ -126,15 +131,48 @@ public class MyConfig
 	{
 		for (int i = 0; i < fixedItems.length; ++i)
 		{
+			fixedExtended[i] = false;
 			fixedItems[i] = Items.AIR;
 			if (i >= values.length)
 				continue;
 			try {
-				ResourceLocation key = new ResourceLocation(values[i]);
-				fixedItems[i] = ForgeRegistries.ITEMS.getValue(key);
+				String[] part = values[i].split(",");
+				if (part.length == 5)
+				{
+					fixedExtended[i] = true;
+					fixedUses[i] = commonUses;
+					fixedPayment[i] = new ItemStack(commonItem, commonCost);
+					fixedAmount[i] = 1;
+					ResourceLocation key = new ResourceLocation(part[0]);
+					if (ForgeRegistries.ITEMS.containsKey(key))
+						fixedItems[i] = ForgeRegistries.ITEMS.getValue(key);
+					else
+						LOGGER.warn("Unknown item: " + key.toString());
+					fixedAmount[i] = Integer.parseInt(part[1]);
+					key = new ResourceLocation(part[2]);
+					if (ForgeRegistries.ITEMS.containsKey(key))
+					{
+						Item payItem = ForgeRegistries.ITEMS.getValue(key);
+						int cost = Integer.parseInt(part[3]);
+						fixedPayment[i] = new ItemStack(payItem, cost);
+					}
+					else
+						LOGGER.warn("Unknown item: " + key.toString());
+					fixedUses[i] = Integer.parseInt(part[4]);
+				}
+				else
+				{
+					if (part.length != 1)
+						LOGGER.warn("Bad number of subfields: ", values[i]);
+					ResourceLocation key = new ResourceLocation(part[0]);
+					if (ForgeRegistries.ITEMS.containsKey(key))
+						fixedItems[i] = ForgeRegistries.ITEMS.getValue(key);
+					else
+						LOGGER.warn("Unknown item: " + key.toString());
+				}
 			}
 			catch (Exception e) {
-				LOGGER.warn("Bad item: " + values[i]);
+				LOGGER.warn("Bad entry: " + values[i]);
 			}
 		}
 	}
@@ -344,7 +382,7 @@ public class MyConfig
 		return ret;
 	}
 
-	public static class Server
+	public static class Common
 	{
 		public final BooleanValue restock;
 		public final BooleanValue fixed;
@@ -368,7 +406,7 @@ public class MyConfig
 		public final ConfigValue<String> excludeGroups;
 		public final ConfigValue<String> itemRarity;
 
-		public Server(ForgeConfigSpec.Builder builder)
+		public Common(ForgeConfigSpec.Builder builder)
 		{
 			String baseTrans = Main.MODID + ".config.";
 			String sectionTrans;
@@ -385,7 +423,7 @@ public class MyConfig
 					.define("UseFixedItems", false);
 
 			fixedItems = builder
-					.comment("Fixed items")
+					.comment("Fixed items; item or item,amount,pay_item,cost,uses")
 					.translation(sectionTrans + "fixed_items")
 					.define("FixedItems", "minecraft:air;minecraft:air;minecraft:air;minecraft:air;minecraft:air;minecraft:air;minecraft:air");
 
@@ -417,7 +455,7 @@ public class MyConfig
 			itemRarity = builder
 					.comment("Change item rarity value for pricing")
 					.translation(sectionTrans + "item_rarity")
-					.define("ItemRarity", "minecraft:emerald_block=1;minecraft:diamond_block=1;minecraft:armorset*diamond=1;minecraft:toolset*diamond=1;minecraft:anvil=2;minecraft:trident=3;eggset*peaceful=1;eggset*monster=2;minecraft:evoker_spawn_egg=3");
+					.define("ItemRarity", "minecraft:emerald_block=1;minecraft:diamond_block=1;minecraft:armorset*diamond=1;minecraft:toolset*diamond=1;minecraft:anvil=2;minecraft:trident=3;minecraft:bell=2;minecraft:conduit=3;minecraft:nautilus_shell=1;eggset*peaceful=1;eggset*monster=2;minecraft:evoker_spawn_egg=3");
 
 			builder.push("RarityData");
 			sectionTrans = baseTrans + ".rarity.";
@@ -441,36 +479,36 @@ public class MyConfig
 			commonCost = builder
 					.comment("Common Cost")
 					.translation(sectionTrans + "common_cost")
-					.defineInRange("CommonCost", 1, 1, 64);
+					.defineInRange("CommonCost", 1, 0, 64);
 			uncommonCost = builder
 					.comment("Uncommon Cost")
 					.translation(sectionTrans + "uncommon_cost")
-					.defineInRange("UncommonCost", 16, 1, 64);
+					.defineInRange("UncommonCost", 16, 0, 64);
 			rareCost = builder
 					.comment("Rare Cost")
 					.translation(sectionTrans + "rare_cost")
-					.defineInRange("RareCost", 32, 1, 64);
+					.defineInRange("RareCost", 32, 0, 64);
 			epicCost = builder
 					.comment("Epic Cost")
 					.translation(sectionTrans + "epic_cost")
-					.defineInRange("EpicCost", 64, 1, 64);
+					.defineInRange("EpicCost", 64, 0, 64);
 
 			commonUses = builder
 					.comment("Common Uses")
 					.translation(sectionTrans + "common_uses")
-					.defineInRange("CommonUses", 8, 1, 32);
+					.defineInRange("CommonUses", 8, 0, 32);
 			uncommonUses = builder
 					.comment("Uncommon Uses")
 					.translation(sectionTrans + "uncommon_uses")
-					.defineInRange("UncommonUses", 4, 1, 32);
+					.defineInRange("UncommonUses", 4, 0, 32);
 			rareUses = builder
 					.comment("Rare Uses")
 					.translation(sectionTrans + "rare_uses")
-					.defineInRange("RareUses", 2, 1, 32);
+					.defineInRange("RareUses", 2, 0, 32);
 			epicUses = builder
 					.comment("Epic Uses")
 					.translation(sectionTrans + "epic_uses")
-					.defineInRange("EpicUses", 1, 1, 32);
+					.defineInRange("EpicUses", 1, 0, 32);
 			builder.pop();
 		}
 	}
