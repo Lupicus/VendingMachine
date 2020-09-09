@@ -31,7 +31,7 @@ public class Main
     public Main()
     {
     	FMLJavaModLoadingContext.get().getModEventBus().register(this);
-		ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, MyConfig.SERVER_SPEC);
+		ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, MyConfig.COMMON_SPEC);
     }
 
 	@SubscribeEvent
