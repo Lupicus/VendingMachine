@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
@@ -46,6 +47,7 @@ public class MyConfig
 
 	public static boolean restock;
 	public static boolean fixed;
+	public static boolean minable;
 	public static HashSet<Item> excludeItemSet;
 	public static HashSet<String> excludeModSet;
 	public static HashSet<String> includeModSet;
@@ -83,6 +85,7 @@ public class MyConfig
 	{
 		restock = COMMON.restock.get();
 		fixed = COMMON.fixed.get();
+		minable = COMMON.minable.get();
 		commonCost = COMMON.commonCost.get();
 		uncommonCost = COMMON.uncommonCost.get();
 		rareCost = COMMON.rareCost.get();
@@ -242,6 +245,11 @@ public class MyConfig
 					;
 				}
 			}
+			if (part1.endsWith(":*"))
+			{
+				expandMod(reg, ret, part1.substring(0, part1.length() - 2), rarity);
+				continue;
+			}
 			List<String> list = expandItem(part1);
 			for (String entry : list)
 			{
@@ -382,10 +390,33 @@ public class MyConfig
 		return ret;
 	}
 
+	private static void expandMod(IForgeRegistry<Item> reg, HashMap<Item, Rarity> map, String name, Rarity newRarity)
+	{
+		if (!ModList.get().isLoaded(name))
+		{
+			LOGGER.warn("Unknown mod entry in ItemRarity: " + name);
+			return;
+		}
+
+		for (Entry<ResourceLocation, Item> entry : reg.getEntries())
+		{
+			if (name.equals(entry.getKey().getNamespace()))
+			{
+				Item item = entry.getValue();
+				Rarity rarity = map.get(item);
+				if (rarity == null)
+					rarity = item.getRarity(new ItemStack(item));
+				if (rarity != newRarity)
+					map.put(item, newRarity);
+			}
+		}
+	}
+
 	public static class Common
 	{
 		public final BooleanValue restock;
 		public final BooleanValue fixed;
+		public final BooleanValue minable;
 		public final ConfigValue<String> commonItem;
 		public final ConfigValue<String> uncommonItem;
 		public final ConfigValue<String> rareItem;
@@ -421,6 +452,11 @@ public class MyConfig
 					.comment("Use fixed items")
 					.translation(sectionTrans + "use_fixed")
 					.define("UseFixedItems", false);
+
+			minable = builder
+					.comment("Minable")
+					.translation(sectionTrans + "minable")
+					.define("Minable", false);
 
 			fixedItems = builder
 					.comment("Fixed items; item or item,amount,pay_item,cost,uses")
