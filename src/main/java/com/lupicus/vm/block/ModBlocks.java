@@ -9,11 +9,12 @@ import net.minecraft.client.renderer.RenderTypeLookup;
 import net.minecraft.client.renderer.color.BlockColors;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.common.ToolType;
 import net.minecraftforge.registries.IForgeRegistry;
 
 public class ModBlocks
 {
-	public static final Block VENDING_MACHINE = new VendingMachine(Properties.create(Material.IRON).notSolid().noDrops().hardnessAndResistance(0.2F).sound(SoundType.METAL).func_235828_a_(VendingMachine::isNormalCube).func_235838_a_(VendingMachine::lightValue)).setRegistryName("vending_machine");
+	public static final Block VENDING_MACHINE = new VendingMachine(Properties.create(Material.IRON).notSolid().func_235861_h_().hardnessAndResistance(3.5F).sound(SoundType.METAL).func_235828_a_(VendingMachine::isNormalCube).func_235838_a_(VendingMachine::lightValue).harvestTool(ToolType.PICKAXE).harvestLevel(3)).setRegistryName("vending_machine");
 
 	public static void register(IForgeRegistry<Block> forgeRegistry)
 	{
