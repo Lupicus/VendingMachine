@@ -66,6 +66,27 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		return super.write(compound);
 	}
 
+	public void readMined(CompoundNBT compound)
+	{
+		if (compound.contains("mined"))
+		{
+			stockTime = world.getDayTime();
+			stockTime -= Math.abs(stockTime % DAY);
+			fixed = compound.getBoolean("fixed");
+			offers = new MerchantOffers(compound);
+			if (offers.isEmpty())
+				offers = null;
+		}
+	}
+
+	public void writeMined(CompoundNBT compound)
+	{
+		compound.putBoolean("mined", true);
+		compound.putBoolean("fixed", fixed);
+		if (offers != null)
+			compound.merge(offers.write());
+	}
+
 	@Override
 	public void setCustomer(PlayerEntity player) {
 		customer = player;
@@ -103,6 +124,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 				configOffers();
 			else
 				fillOffers();
+			markDirty();
 		}
 		return offers;
 	}
@@ -117,6 +139,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 	public void onTrade(MerchantOffer offer) {
 		offer.increaseUses();
 		world.playSound((PlayerEntity) null, pos, ModSounds.VENDING_MACHINE_TAKE_RESULT, SoundCategory.BLOCKS, 1.0F, 1.0F);
+		markDirty();
 	}
 
 	@Override
@@ -259,6 +282,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 			return;
 		for (MerchantOffer offer : offers)
 			offer.resetUses();
+		markDirty();
 	}
 
 	private void filterGroups(Collection<Item> set)
