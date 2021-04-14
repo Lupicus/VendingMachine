@@ -26,59 +26,60 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 @Mod(Main.MODID)
 public class Main
 {
-    public static final String MODID = "vm";
+	public static final String MODID = "vm";
 
-    public Main()
-    {
-    	FMLJavaModLoadingContext.get().getModEventBus().register(this);
+	public Main()
+	{
+		FMLJavaModLoadingContext.get().getModEventBus().register(this);
 		ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, MyConfig.COMMON_SPEC);
-    }
+	}
 
+	@SuppressWarnings("deprecation")
 	@SubscribeEvent
 	public void setupCommon(final FMLCommonSetupEvent event)
 	{
-		ModVillage.updatePools();
+		net.minecraftforge.fml.DeferredWorkQueue.runLater(() -> ModVillage.updatePools());
 	}
 
 	@OnlyIn(Dist.CLIENT)
 	@SubscribeEvent
 	public void setupClient(final FMLClientSetupEvent event)
-    {
+	{
 		ModBlocks.setRenderLayer();
 	}
 
-    @Mod.EventBusSubscriber(bus=Mod.EventBusSubscriber.Bus.MOD)
-    public static class ModEvents
-    {
-	    @SubscribeEvent
-	    public static void onItemsRegistry(final RegistryEvent.Register<Item> event)
-	    {
-	        ModItems.register(event.getRegistry());
-	    }
+	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+	public static class ModEvents
+	{
+		@SubscribeEvent
+		public static void onItemsRegistry(final RegistryEvent.Register<Item> event)
+		{
+			ModItems.register(event.getRegistry());
+		}
 
-	    @SubscribeEvent
-	    public static void onBlocksRegistry(final RegistryEvent.Register<Block> event)
-	    {
-	        ModBlocks.register(event.getRegistry());
-	    }
+		@SubscribeEvent
+		public static void onBlocksRegistry(final RegistryEvent.Register<Block> event)
+		{
+			ModBlocks.register(event.getRegistry());
+		}
 
-        @OnlyIn(Dist.CLIENT)
-        @SubscribeEvent
-        public static void onColorsRegistry(final ColorHandlerEvent.Item event)
-        {
-        	ModItems.register(event.getItemColors());
-        }
+		@OnlyIn(Dist.CLIENT)
+		@SubscribeEvent
+		public static void onColorsRegistry(final ColorHandlerEvent.Item event)
+		{
+			ModItems.register(event.getItemColors());
+		}
 
-        @SubscribeEvent
-        public static void onSoundRegistry(final RegistryEvent.Register<SoundEvent> event)
-        {
-        	ModSounds.register(event.getRegistry());
-        }
+		@SubscribeEvent
+		public static void onSoundRegistry(final RegistryEvent.Register<SoundEvent> event)
+		{
+			ModSounds.register(event.getRegistry());
+		}
 
-	    @SubscribeEvent
-	    public static void onTileEntitiesRegistry(final RegistryEvent.Register<TileEntityType<?>> event)
-	    {
-	        ModTileEntities.register(event.getRegistry());
-	    }
-    }
+		@SubscribeEvent
+		public static void onTileEntitiesRegistry(final RegistryEvent.Register<TileEntityType<?>> event)
+		{
+			ModTileEntities.register(event.getRegistry());
+		}
+	}
 }
