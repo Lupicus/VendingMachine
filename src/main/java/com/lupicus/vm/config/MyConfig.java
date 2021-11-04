@@ -48,7 +48,9 @@ public class MyConfig
 	public static boolean restock;
 	public static boolean fixed;
 	public static boolean minable;
+	public static boolean includeAllItems;
 	public static HashSet<Item> excludeItemSet;
+	public static HashSet<Item> includeItemSet;
 	public static HashSet<String> excludeModSet;
 	public static HashSet<String> includeModSet;
 	public static HashSet<String> excludeGroupSet;
@@ -101,7 +103,12 @@ public class MyConfig
 		extractFixed(extract(COMMON.fixedItems.get()));
 		includeModSet = stringSet(extract(COMMON.includeMods.get()));
 		excludeModSet = stringSet(extract(COMMON.excludeMods.get()));
-		excludeItemSet = itemSet(extract(COMMON.excludeItems.get()));
+		String[] temp = extract(COMMON.includeItems.get());
+		includeAllItems = hasAll(temp);
+		if (includeAllItems)
+			temp = new String[0];
+		includeItemSet = itemSet(temp, "IncludeItems");
+		excludeItemSet = itemSet(extract(COMMON.excludeItems.get()), "ExcludeItems");
 		includeGroupSet = stringSet(extract(COMMON.includeGroups.get()));
 		excludeGroupSet = stringSet(extract(COMMON.excludeGroups.get()));
 		itemRarityMap = itemMap(extract(COMMON.itemRarity.get()));
@@ -109,6 +116,16 @@ public class MyConfig
 		validateMods(excludeModSet, "ExcludeMods");
 		validateGroups(includeGroupSet, "IncludeGroups");
 		validateGroups(excludeGroupSet, "ExcludeGroups");
+	}
+
+	private static boolean hasAll(String[] values)
+	{
+		for (String name : values)
+		{
+			if (name.equals("*"))
+				return true;
+		}
+		return false;
 	}
 
 	private static Item getItem(String name)
@@ -190,7 +207,7 @@ public class MyConfig
 		return set;
 	}
 
-	private static HashSet<Item> itemSet(String[] values)
+	private static HashSet<Item> itemSet(String[] values, String configName)
 	{
 		HashSet<Item> ret = new HashSet<>();
 		IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
@@ -207,11 +224,11 @@ public class MyConfig
 						ret.add(item);
 					}
 					else
-						LOGGER.warn("Unknown entry in ExcludeItems: " + entry);
+						LOGGER.warn("Unknown entry in " + configName + ": " + entry);
 				}
 				catch (Exception e)
 				{
-					LOGGER.warn("Bad entry in ExcludeItems: " + entry);
+					LOGGER.warn("Bad entry in " + configName + ": " + entry);
 				}
 			}
 		}
@@ -432,6 +449,7 @@ public class MyConfig
 		public final ConfigValue<String> fixedItems;
 		public final ConfigValue<String> includeMods;
 		public final ConfigValue<String> excludeMods;
+		public final ConfigValue<String> includeItems;
 		public final ConfigValue<String> excludeItems;
 		public final ConfigValue<String> includeGroups;
 		public final ConfigValue<String> excludeGroups;
@@ -472,6 +490,11 @@ public class MyConfig
 					.comment("Exclude Mods")
 					.translation(sectionTrans + "exclude_mods")
 					.define("ExcludeMods", "draconicevolution;avaritia;botania");
+
+			includeItems = builder
+					.comment("Include Items")
+					.translation(sectionTrans + "include_items")
+					.define("IncludeItems", "*");
 
 			excludeItems = builder
 					.comment("Exclude Items")

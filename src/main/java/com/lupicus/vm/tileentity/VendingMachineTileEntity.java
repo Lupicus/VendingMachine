@@ -182,7 +182,9 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		int maxUses;
 
 		offers = new MerchantOffers();
-		Collection<Item> set = new HashSet<>(ForgeRegistries.ITEMS.getValues());
+		Collection<Item> set;
+		set = (MyConfig.includeAllItems) ? ForgeRegistries.ITEMS.getValues() : MyConfig.includeItemSet;
+		set = new HashSet<>(set);
 		if (!MyConfig.includeGroupSet.contains("*") ||
 			!(MyConfig.excludeGroupSet.size() == 1 && MyConfig.excludeGroupSet.contains("!")))
 			filterGroups(set);
@@ -381,8 +383,14 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 			  MyConfig.includeModSet.contains(modName)))
 			return true;
 
-		if (MyConfig.excludeModSet.contains(modName) ||
-			MyConfig.excludeItemSet.contains(item))
+		if (MyConfig.excludeModSet.contains(modName))
+			return true;
+
+		if (!(MyConfig.includeAllItems ||
+			  MyConfig.includeItemSet.contains(item)))
+			return true;
+
+		if (MyConfig.excludeItemSet.contains(item))
 			return true;
 
 		return false;
