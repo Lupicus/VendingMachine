@@ -1,3 +1,4 @@
 {
-	"Merchant": "asm/Merchant.js"
+	"Merchant": "asm/Merchant.js",
+	"DataFixers": "asm/DataFixers.js"
 }

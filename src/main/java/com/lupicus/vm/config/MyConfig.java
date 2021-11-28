@@ -1,6 +1,7 @@
 package com.lupicus.vm.config;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -12,15 +13,16 @@ import org.apache.logging.log4j.Logger;
 
 import com.lupicus.vm.Main;
 
-import net.minecraft.entity.EntityType;
-import net.minecraft.item.DyeColor;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.Rarity;
-import net.minecraft.item.SpawnEggItem;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.SpawnEggItem;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
@@ -28,7 +30,7 @@ import net.minecraftforge.common.ForgeConfigSpec.IntValue;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.IForgeRegistry;
 
@@ -75,7 +77,7 @@ public class MyConfig
 	public static ItemStack[] fixedPayment = new ItemStack[7];
 
 	@SubscribeEvent
-	public static void onModConfigEvent(final ModConfig.ModConfigEvent configEvent)
+	public static void onModConfigEvent(final ModConfigEvent configEvent)
 	{
 		if (configEvent.getConfig().getSpec() == MyConfig.COMMON_SPEC)
 		{
@@ -289,10 +291,9 @@ public class MyConfig
 		return ret;
 	}
 
-	private static String[] extract(String value)
+	private static String[] extract(List<? extends String> value)
 	{
-		String[] ret = value.split(";");
-		return ret;
+		return value.toArray(new String[value.size()]);
 	}
 
 	private static void validateMods(HashSet<String> set, String configName)
@@ -311,11 +312,11 @@ public class MyConfig
 	private static void validateGroups(HashSet<String> set, String configName)
 	{
 		HashSet<String> groups = new HashSet<>();
-		for (ItemGroup g : ItemGroup.GROUPS)
+		for (CreativeModeTab g : CreativeModeTab.TABS)
 		{
-			if (g == ItemGroup.HOTBAR || g == ItemGroup.SEARCH || g == ItemGroup.INVENTORY)
+			if (g == CreativeModeTab.TAB_HOTBAR || g == CreativeModeTab.TAB_SEARCH || g == CreativeModeTab.TAB_INVENTORY)
 				continue;
-			groups.add(g.getPath());
+			groups.add(g.getRecipeFolderName());
 		}
 		set.removeIf(name -> {
 			if (name.equals("*"))
@@ -373,7 +374,7 @@ public class MyConfig
 			if (mode.equals("all"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.getEggs())
+				for (SpawnEggItem e : SpawnEggItem.eggs())
 				{
 					ResourceLocation res = e.getRegistryName();
 					ret.add(res.toString());
@@ -382,10 +383,10 @@ public class MyConfig
 			else if (mode.equals("monster"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.getEggs())
+				for (SpawnEggItem e : SpawnEggItem.eggs())
 				{
 					EntityType<?> type = e.getType(null);
-					if (type.getClassification().getPeacefulCreature())
+					if (type.getCategory().isFriendly())
 						continue;
 					ResourceLocation res = e.getRegistryName();						
 					ret.add(res.toString());
@@ -394,10 +395,10 @@ public class MyConfig
 			else if (mode.equals("peaceful"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.getEggs())
+				for (SpawnEggItem e : SpawnEggItem.eggs())
 				{
 					EntityType<?> type = e.getType(null);
-					if (!type.getClassification().getPeacefulCreature())
+					if (!type.getCategory().isFriendly())
 						continue;
 					ResourceLocation res = e.getRegistryName();						
 					ret.add(res.toString());
@@ -415,9 +416,9 @@ public class MyConfig
 			return;
 		}
 
-		for (Entry<ResourceLocation, Item> entry : reg.getEntries())
+		for (Entry<ResourceKey<Item>, Item> entry : reg.getEntries())
 		{
-			if (name.equals(entry.getKey().getNamespace()))
+			if (name.equals(entry.getKey().location().getNamespace()))
 			{
 				Item item = entry.getValue();
 				Rarity rarity = map.get(item);
@@ -446,17 +447,33 @@ public class MyConfig
 		public final IntValue uncommonUses;
 		public final IntValue rareUses;
 		public final IntValue epicUses;
-		public final ConfigValue<String> fixedItems;
-		public final ConfigValue<String> includeMods;
-		public final ConfigValue<String> excludeMods;
-		public final ConfigValue<String> includeItems;
-		public final ConfigValue<String> excludeItems;
-		public final ConfigValue<String> includeGroups;
-		public final ConfigValue<String> excludeGroups;
-		public final ConfigValue<String> itemRarity;
+		public final ConfigValue<List<? extends String>> fixedItems;
+		public final ConfigValue<List<? extends String>> includeMods;
+		public final ConfigValue<List<? extends String>> excludeMods;
+		public final ConfigValue<List<? extends String>> includeItems;
+		public final ConfigValue<List<? extends String>> excludeItems;
+		public final ConfigValue<List<? extends String>> includeGroups;
+		public final ConfigValue<List<? extends String>> excludeGroups;
+		public final ConfigValue<List<? extends String>> itemRarity;
 
 		public Common(ForgeConfigSpec.Builder builder)
 		{
+			List<String> fixedItemsList = Arrays.asList(
+					"minecraft:air", "minecraft:air", "minecraft:air", "minecraft:air", "minecraft:air", "minecraft:air", "minecraft:air");
+			List<String> includeModsList = Arrays.asList("*");
+			List<String> excludeModsList = Arrays.asList("draconicevolution", "avaritia", "botania");
+			List<String> includeItemsList = Arrays.asList("*");
+			List<String> excludeItemsList = Arrays.asList("minecraft:nether_star", "minecraft:beacon", "minecraft:bedrock",
+					"minecraft:shulker_box", "minecraft:colorset*shulker_box", "minecraft:elytra", "minecraft:end_portal_frame",
+					"minecraft:armorset*netherite", "minecraft:toolset*netherite", "minecraft:netherite_block", "minecraft:netherite_ingot",
+					"vm:vending_machine");
+			List<String> includeGroupsList = Arrays.asList("*");
+			List<String> excludeGroupsList = Arrays.asList("!");
+			List<String> itemRarityList = Arrays.asList("minecraft:emerald_block=1", "minecraft:diamond_block=1",
+					"minecraft:armorset*diamond=1", "minecraft:toolset*diamond=1", "minecraft:anvil=2", "minecraft:trident=3",
+					"minecraft:bell=2", "minecraft:conduit=3", "minecraft:nautilus_shell=1", "eggset*peaceful=1", "eggset*monster=2",
+					"minecraft:evoker_spawn_egg=3", "minecraft:netherite_scrap=2", "minecraft:ancient_debris=2",
+					"minecraft:axolotl_bucket=1");
 			String baseTrans = Main.MODID + ".config.";
 			String sectionTrans;
 
@@ -479,42 +496,42 @@ public class MyConfig
 			fixedItems = builder
 					.comment("Fixed items; item or item,amount,pay_item,cost,uses")
 					.translation(sectionTrans + "fixed_items")
-					.define("FixedItems", "minecraft:air;minecraft:air;minecraft:air;minecraft:air;minecraft:air;minecraft:air;minecraft:air");
+					.defineList("FixedItems", fixedItemsList, Common::isString);
 
 			includeMods = builder
 					.comment("Include Mods")
 					.translation(sectionTrans + "include_mods")
-					.define("IncludeMods", "*");
+					.defineList("IncludeMods", includeModsList, Common::isString);
 
 			excludeMods = builder
 					.comment("Exclude Mods")
 					.translation(sectionTrans + "exclude_mods")
-					.define("ExcludeMods", "draconicevolution;avaritia;botania");
+					.defineList("ExcludeMods", excludeModsList, Common::isString);
 
 			includeItems = builder
 					.comment("Include Items")
 					.translation(sectionTrans + "include_items")
-					.define("IncludeItems", "*");
+					.defineList("IncludeItems", includeItemsList, Common::isString);
 
 			excludeItems = builder
 					.comment("Exclude Items")
 					.translation(sectionTrans + "exclude_items")
-					.define("ExcludeItems", "minecraft:nether_star;minecraft:beacon;minecraft:bedrock;minecraft:shulker_box;minecraft:colorset*shulker_box;minecraft:elytra;minecraft:end_portal_frame;minecraft:armorset*netherite;minecraft:toolset*netherite;minecraft:netherite_block;minecraft:netherite_ingot;vm:vending_machine");
+					.defineList("ExcludeItems", excludeItemsList, Common::isString);
 
 			includeGroups = builder
 					.comment("Include Creative Tab Groups")
 					.translation(sectionTrans + "include_groups")
-					.define("IncludeGroups", "*");
+					.defineList("IncludeGroups", includeGroupsList, Common::isString);
 
 			excludeGroups = builder
 					.comment("Exclude Creative Tab Groups")
 					.translation(sectionTrans + "exclude_groups")
-					.define("ExcludeGroups", "!");
+					.defineList("ExcludeGroups", excludeGroupsList, Common::isString);
 
 			itemRarity = builder
 					.comment("Change item rarity value for pricing")
 					.translation(sectionTrans + "item_rarity")
-					.define("ItemRarity", "minecraft:emerald_block=1;minecraft:diamond_block=1;minecraft:armorset*diamond=1;minecraft:toolset*diamond=1;minecraft:anvil=2;minecraft:trident=3;minecraft:bell=2;minecraft:conduit=3;minecraft:nautilus_shell=1;eggset*peaceful=1;eggset*monster=2;minecraft:evoker_spawn_egg=3;minecraft:netherite_scrap=2;minecraft:ancient_debris=2");
+					.defineList("ItemRarity", itemRarityList, Common::isString);
 
 			builder.push("RarityData");
 			sectionTrans = baseTrans + ".rarity.";
@@ -569,6 +586,11 @@ public class MyConfig
 					.translation(sectionTrans + "epic_uses")
 					.defineInRange("EpicUses", 1, 0, 32);
 			builder.pop();
+		}
+
+		public static boolean isString(Object o)
+		{
+			return (o instanceof String);
 		}
 	}
 }

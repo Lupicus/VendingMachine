@@ -8,69 +8,70 @@ import com.lupicus.vm.block.ModBlocks;
 import com.lupicus.vm.config.MyConfig;
 import com.lupicus.vm.sound.ModSounds;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.merchant.IMerchant;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.item.MerchantOffer;
-import net.minecraft.item.MerchantOffers;
-import net.minecraft.item.OperatorOnlyItem;
-import net.minecraft.item.Rarity;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.NonNullList;
-import net.minecraft.util.SoundCategory;
-import net.minecraft.util.SoundEvent;
-import net.minecraft.util.SoundEvents;
-import net.minecraft.util.text.TranslationTextComponent;
-import net.minecraft.world.World;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.NonNullList;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.GameMasterBlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.trading.Merchant;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ForgeRegistries;
 
-public class VendingMachineTileEntity extends TileEntity implements IMerchant
+public class VendingMachineTileEntity extends BlockEntity implements Merchant
 {
 	MerchantOffers offers = null;
-	PlayerEntity customer = null;
+	Player customer = null;
 	boolean fixed = MyConfig.fixed;
 	long stockTime = 0;
 	private static final long DAY = 24000;
 	private static final int ITEM_COUNT = 7;
 	private static final int RETRIES = 8;
 
-	public VendingMachineTileEntity() {
-		super(ModTileEntities.VENDING_MACHINE);
+	public VendingMachineTileEntity(BlockPos pos, BlockState state) {
+		super(ModTileEntities.VENDING_MACHINE, pos, state);
 	}
 
 	@Override
-	public void func_230337_a_(BlockState state, CompoundNBT compound) // read
+	public void load(CompoundTag compound)
 	{
 		stockTime = compound.getLong("stockTime");
 		fixed = compound.getBoolean("fixed");
 		offers = new MerchantOffers(compound);
 		if (offers.isEmpty())
 			offers = null;
-		super.func_230337_a_(state, compound);
+		super.load(compound);
 	}
 
 	@Override
-	public CompoundNBT write(CompoundNBT compound)
+	public CompoundTag save(CompoundTag compound)
 	{
 		compound.putLong("stockTime", stockTime);
 		compound.putBoolean("fixed", fixed);
 		if (offers != null)
-			compound.merge(offers.write());
-		return super.write(compound);
+			compound.merge(offers.createTag());
+		return super.save(compound);
 	}
 
-	public void readMined(CompoundNBT compound)
+	public void readMined(CompoundTag compound)
 	{
 		if (compound.contains("mined"))
 		{
-			stockTime = world.getDayTime();
+			stockTime = level.getDayTime();
 			stockTime -= Math.abs(stockTime % DAY);
 			fixed = compound.getBoolean("fixed");
 			offers = new MerchantOffers(compound);
@@ -79,21 +80,21 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		}
 	}
 
-	public void writeMined(CompoundNBT compound)
+	public void writeMined(CompoundTag compound)
 	{
 		compound.putBoolean("mined", true);
 		compound.putBoolean("fixed", fixed);
 		if (offers != null)
-			compound.merge(offers.write());
+			compound.merge(offers.createTag());
 	}
 
 	@Override
-	public void setCustomer(PlayerEntity player) {
+	public void setTradingPlayer(Player player) {
 		customer = player;
 	}
 
 	@Override
-	public PlayerEntity getCustomer() {
+	public Player getTradingPlayer() {
 		return customer;
 	}
 
@@ -102,7 +103,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 	{
 		if (MyConfig.restock)
 		{
-			long time = world.getDayTime();
+			long time = level.getDayTime();
 			if (time < stockTime)
 			{
 				stockTime = time;
@@ -124,56 +125,56 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 				configOffers();
 			else
 				fillOffers();
-			markDirty();
+			setChanged();
 		}
 		return offers;
 	}
 
 	@OnlyIn(Dist.CLIENT)
 	@Override
-	public void setClientSideOffers(MerchantOffers offers) {
+	public void overrideOffers(MerchantOffers offers) {
 		this.offers = offers;
 	}
 
 	@Override
-	public void onTrade(MerchantOffer offer) {
+	public void notifyTrade(MerchantOffer offer) {
 		offer.increaseUses();
-		world.playSound((PlayerEntity) null, pos, ModSounds.VENDING_MACHINE_TAKE_RESULT, SoundCategory.BLOCKS, 1.0F, 1.0F);
-		markDirty();
+		level.playSound((Player) null, worldPosition, ModSounds.VENDING_MACHINE_TAKE_RESULT, SoundSource.BLOCKS, 1.0F, 1.0F);
+		setChanged();
 	}
 
 	@Override
-	public void verifySellingItem(ItemStack stack) {
+	public void notifyTradeUpdated(ItemStack stack) {
 	}
 
 	@Override
-	public World getWorld() {
-		return world;
+	public Level getLevel() {
+		return level;
 	}
 
 	@Override
-	public int getXp() {
+	public int getVillagerXp() {
 		return 0;
 	}
 
 	@Override
-	public void setXP(int xpIn) {
+	public void overrideXp(int xpIn) {
 	}
 
 	@Override
-	public boolean func_213705_dZ() {
+	public boolean showProgressBar() {
 		return false;
 	}
 
 	@Override
-	public SoundEvent getYesSound() {
-		return SoundEvents.ENTITY_VILLAGER_YES;
+	public SoundEvent getNotifyTradeSound() {
+		return SoundEvents.VILLAGER_YES;
 	}
 
-	public void openGui(PlayerEntity player) {
-		setCustomer(player);
-		TranslationTextComponent name = new TranslationTextComponent(ModBlocks.VENDING_MACHINE.getTranslationKey());
-		this.openMerchantContainer(player, name, 5);
+	public void openGui(Player player) {
+		setTradingPlayer(player);
+		TranslatableComponent name = new TranslatableComponent(ModBlocks.VENDING_MACHINE.getDescriptionId());
+		this.openTradingScreen(player, name, 5);
 	}
 
 	private void fillOffers()
@@ -199,14 +200,14 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		for (int i = 0; i < ITEM_COUNT; )
 		{
 			tryCount++;
-			int j = this.world.rand.nextInt(values.length);
+			int j = this.level.random.nextInt(values.length);
 			Item item = values[j];
 			ItemStack stack;
 			// handle Enchanted books and etc.
 			items.clear();
-			item.fillItemGroup(ItemGroup.SEARCH, items);
+			item.fillItemCategory(CreativeModeTab.TAB_SEARCH, items);
 			if (!items.isEmpty())
-				stack = items.get(this.world.rand.nextInt(items.size()));
+				stack = items.get(this.level.random.nextInt(items.size()));
 			else
 				stack = new ItemStack(item);
 			Rarity rarity = MyConfig.itemRarityMap.get(item);
@@ -246,9 +247,9 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 			ItemStack stack;
 			// handle Enchanted books and etc.
 			items.clear();
-			item.fillItemGroup(ItemGroup.SEARCH, items);
+			item.fillItemCategory(CreativeModeTab.TAB_SEARCH, items);
 			if (!items.isEmpty())
-				stack = items.get(this.world.rand.nextInt(items.size()));
+				stack = items.get(this.level.random.nextInt(items.size()));
 			else
 				stack = new ItemStack(item);
 			if (MyConfig.fixedExtended[i])
@@ -284,7 +285,7 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 			return;
 		for (MerchantOffer offer : offers)
 			offer.resetUses();
-		markDirty();
+		setChanged();
 	}
 
 	private void filterGroups(Collection<Item> set)
@@ -294,8 +295,8 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		boolean addAll = includeSet.contains("*");
 		set.removeIf(item ->
 		{
-			ItemGroup group = item.getGroup();
-			String name = (group == null) ? "!" : group.getPath();
+			CreativeModeTab group = item.getItemCategory();
+			String name = (group == null) ? "!" : group.getRecipeFolderName();
 			if (!(addAll || includeSet.contains(name)) ||
 				excludeSet.contains(name))
 				return true;
@@ -366,11 +367,11 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 
 	private boolean invalidItem(Item item)
 	{
-		if (item instanceof OperatorOnlyItem)
+		if (item instanceof GameMasterBlockItem)
 			return true;
 
-		ItemGroup group = item.getGroup();
-		String groupName = (group == null) ? "!" : group.getPath();
+		CreativeModeTab group = item.getItemCategory();
+		String groupName = (group == null) ? "!" : group.getRecipeFolderName();
 		if (!(MyConfig.includeGroupSet.contains("*") ||
 			  MyConfig.includeGroupSet.contains(groupName)))
 			return true;

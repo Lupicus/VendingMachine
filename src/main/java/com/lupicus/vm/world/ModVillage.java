@@ -7,14 +7,14 @@ import java.util.function.Function;
 import com.lupicus.vm.Main;
 import com.mojang.datafixers.util.Pair;
 
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.registry.WorldGenRegistries;
-import net.minecraft.world.gen.feature.jigsaw.JigsawPattern;
-import net.minecraft.world.gen.feature.jigsaw.JigsawPattern.PlacementBehaviour;
-import net.minecraft.world.gen.feature.jigsaw.JigsawPiece;
-import net.minecraft.world.gen.feature.jigsaw.LegacySingleJigsawPiece;
-import net.minecraft.world.gen.feature.structure.VillagesPools;
-import net.minecraft.world.gen.feature.template.ProcessorLists;
+import net.minecraft.data.BuiltinRegistries;
+import net.minecraft.data.worldgen.ProcessorLists;
+import net.minecraft.data.worldgen.VillagePools;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.levelgen.feature.structures.LegacySinglePoolElement;
+import net.minecraft.world.level.levelgen.feature.structures.StructurePoolElement;
+import net.minecraft.world.level.levelgen.feature.structures.StructureTemplatePool;
+import net.minecraft.world.level.levelgen.feature.structures.StructureTemplatePool.Projection;
 import net.minecraftforge.coremod.api.ASMAPI;
 
 public class ModVillage
@@ -23,29 +23,29 @@ public class ModVillage
 	public static void updatePools()
 	{
 		String[] biomeList = {"plains", "snowy", "savanna", "desert", "taiga"};
-		VillagesPools.func_244194_a();
+		VillagePools.bootstrap();
 
 		try {
-			String name = ASMAPI.mapField("field_214953_e"); // jigsawPieces
-			Field field = JigsawPattern.class.getDeclaredField(name);
+			String name = ASMAPI.mapField("f_69250_"); // templates
+			Field field = StructureTemplatePool.class.getDeclaredField(name);
 			field.setAccessible(true);
-			String name2 = ASMAPI.mapField("field_214952_d"); // rawTemplates
-			Field field2 = JigsawPattern.class.getDeclaredField(name2);
+			String name2 = ASMAPI.mapField("f_69249_"); // rawTemplates
+			Field field2 = StructureTemplatePool.class.getDeclaredField(name2);
 			field2.setAccessible(true);
 
 			for (String biomeName : biomeList)
 			{
 				String baseName = "village/" + biomeName + "/houses";
-		        JigsawPattern pattern = WorldGenRegistries.field_243656_h.getOrDefault(new ResourceLocation("minecraft:" + baseName));
+				StructureTemplatePool pattern = BuiltinRegistries.TEMPLATE_POOL.get(new ResourceLocation("minecraft:" + baseName));
 		        if (pattern == null)
 		        	continue;
 
-				Function<PlacementBehaviour, LegacySingleJigsawPiece> funpiece = JigsawPiece.func_242851_a(Main.MODID + ":" + baseName + "/" + biomeName + "_vending_machine_1", ProcessorLists.field_244107_g);
-		        JigsawPiece piece = funpiece.apply(PlacementBehaviour.RIGID);
+				Function<Projection, LegacySinglePoolElement> funpiece = StructurePoolElement.legacy(Main.MODID + ":" + baseName + "/" + biomeName + "_vending_machine_1", ProcessorLists.MOSSIFY_10_PERCENT);
+				StructurePoolElement piece = funpiece.apply(Projection.RIGID);
 
-				List<JigsawPiece> list = (List<JigsawPiece>) field.get(pattern);
+				List<StructurePoolElement> list = (List<StructurePoolElement>) field.get(pattern);
 				list.add(piece);
-				List<Pair<JigsawPiece, Integer>> list2 = (List<Pair<JigsawPiece, Integer>>) field2.get(pattern);
+				List<Pair<StructurePoolElement, Integer>> list2 = (List<Pair<StructurePoolElement, Integer>>) field2.get(pattern);
 				list2.add(Pair.of(piece, 1));
 			}
 		}

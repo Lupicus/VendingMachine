@@ -9,46 +9,46 @@ import com.lupicus.vm.config.MyConfig;
 import com.lupicus.vm.item.ModItems;
 import com.lupicus.vm.tileentity.VendingMachineTileEntity;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockRenderType;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.material.PushReaction;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.item.BlockItemUseContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.loot.LootContext;
-import net.minecraft.loot.LootParameters;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.state.BooleanProperty;
-import net.minecraft.state.StateContainer.Builder;
-import net.minecraft.state.properties.BlockStateProperties;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Direction;
-import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.BlockRayTraceResult;
-import net.minecraft.world.Explosion;
-import net.minecraft.world.IBlockReader;
-import net.minecraft.world.World;
-import net.minecraft.world.server.ServerWorld;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.PushReaction;
+import net.minecraft.world.level.storage.loot.LootContext;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
+import net.minecraft.world.phys.BlockHitResult;
 
 public class VendingMachine extends RotateContainerBase
 {
 	public static final BooleanProperty BOTTOM = BlockStateProperties.BOTTOM;
 	// save temp values to support drops (should be okay for main server thread only)
-	private TileEntity saveTE;
+	private BlockEntity saveTE;
 	private BlockState saveState;
 
 	public VendingMachine(Properties properties) {
 		super(properties);
-		setDefaultState(this.stateContainer.getBaseState().with(HORIZONTAL_FACING, Direction.NORTH).with(BOTTOM, true));
+		registerDefaultState(getStateDefinition().any().setValue(HORIZONTAL_FACING, Direction.NORTH).setValue(BOTTOM, true));
 	}
 
-	public static boolean isNormalCube(BlockState state, IBlockReader worldIn, BlockPos pos) {
+	public static boolean isNormalCube(BlockState state, BlockGetter worldIn, BlockPos pos) {
 		return false;
 	}
 
@@ -58,39 +58,39 @@ public class VendingMachine extends RotateContainerBase
 
 	@Override
 	@Nullable
-	public BlockState getStateForPlacement(BlockItemUseContext context)
+	public BlockState getStateForPlacement(BlockPlaceContext context)
 	{
-		if (!context.getWorld().getBlockState(context.getPos().up()).isReplaceable(context))
+		if (!context.getLevel().getBlockState(context.getClickedPos().above()).canBeReplaced(context))
 			return null;
-		return getDefaultState().with(HORIZONTAL_FACING, context.getPlacementHorizontalFacing());
+		return defaultBlockState().setValue(HORIZONTAL_FACING, context.getHorizontalDirection().getOpposite());
 	}
 
 	@Override
-	public ActionResultType onBlockActivated(BlockState state, World worldIn, BlockPos pos, PlayerEntity player,
-			Hand handIn, BlockRayTraceResult hit)
+	public InteractionResult use(BlockState state, Level worldIn, BlockPos pos, Player player,
+			InteractionHand handIn, BlockHitResult hit)
 	{
-		if (!worldIn.isRemote)
+		if (!worldIn.isClientSide)
 		{
-			if (!state.get(BOTTOM))
-				pos = pos.down();
-			TileEntity te = worldIn.getTileEntity(pos);
+			if (!state.getValue(BOTTOM))
+				pos = pos.below();
+			BlockEntity te = worldIn.getBlockEntity(pos);
 			if (te instanceof VendingMachineTileEntity)
 				((VendingMachineTileEntity) te).openGui(player);
 		}
-		return ActionResultType.SUCCESS;
+		return InteractionResult.SUCCESS;
 	}
 
 	@Override
-	public void onBlockPlacedBy(World worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack)
+	public void setPlacedBy(Level worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack)
 	{
-		super.onBlockPlacedBy(worldIn, pos, state, placer, stack);
-		if (!worldIn.isRemote)
+		super.setPlacedBy(worldIn, pos, state, placer, stack);
+		if (!worldIn.isClientSide)
 		{
-			worldIn.setBlockState(pos.up(), state.with(BOTTOM, false), 3);
-			CompoundNBT tag = stack.getTag();
+			worldIn.setBlock(pos.above(), state.setValue(BOTTOM, false), 3);
+			CompoundTag tag = stack.getTag();
 			if (tag != null)
 			{
-				TileEntity te = worldIn.getTileEntity(pos);
+				BlockEntity te = worldIn.getBlockEntity(pos);
 				if (te instanceof VendingMachineTileEntity)
 					((VendingMachineTileEntity) te).readMined(tag);
 			}
@@ -99,26 +99,26 @@ public class VendingMachine extends RotateContainerBase
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public void onReplaced(BlockState state, World worldIn, BlockPos pos, BlockState newState, boolean isMoving)
+	public void onRemove(BlockState state, Level worldIn, BlockPos pos, BlockState newState, boolean isMoving)
 	{
-		if (!worldIn.isRemote && state.getBlock() != newState.getBlock())
+		if (!worldIn.isClientSide && state.getBlock() != newState.getBlock())
 		{
-			BlockPos pos2 = pos.offset(state.get(BOTTOM) ? Direction.UP : Direction.DOWN);
+			BlockPos pos2 = pos.relative(state.getValue(BOTTOM) ? Direction.UP : Direction.DOWN);
 			if (worldIn.getBlockState(pos2).getBlock() == this)
-				worldIn.setBlockState(pos2, Blocks.AIR.getDefaultState(), 3);
+				worldIn.setBlock(pos2, Blocks.AIR.defaultBlockState(), 3);
 		}
-		super.onReplaced(state, worldIn, pos, newState, isMoving);
+		super.onRemove(state, worldIn, pos, newState, isMoving);
 	}
 
 	@Override
-	public boolean removedByPlayer(BlockState state, World world, BlockPos pos, PlayerEntity player,
+	public boolean removedByPlayer(BlockState state, Level world, BlockPos pos, Player player,
 			boolean willHarvest, FluidState fluid)
 	{
-		boolean flag = !world.isRemote;
+		boolean flag = !world.isClientSide;
 		if (flag)
 		{
 			saveTE = null;
-			if (!state.get(BOTTOM))
+			if (!state.getValue(BOTTOM))
 				saveMainBlock(world, pos);
 		}
 		boolean removed = super.removedByPlayer(state, world, pos, player, willHarvest, fluid);
@@ -128,24 +128,24 @@ public class VendingMachine extends RotateContainerBase
 	}
 
 	@Override
-	public boolean canDropFromExplosion(BlockState state, IBlockReader world, BlockPos pos, Explosion explosion)
+	public boolean canDropFromExplosion(BlockState state, BlockGetter world, BlockPos pos, Explosion explosion)
 	{
-		if (world instanceof ServerWorld)
+		if (world instanceof ServerLevel)
 		{
 			saveTE = null;
-			if (!state.get(BOTTOM))
+			if (!state.getValue(BOTTOM))
 				saveMainBlock(world, pos);
 		}
 		return true;
 	}
 
-	private void saveMainBlock(IBlockReader world, BlockPos pos)
+	private void saveMainBlock(BlockGetter world, BlockPos pos)
 	{
-		BlockPos blockpos = pos.offset(Direction.DOWN);
+		BlockPos blockpos = pos.relative(Direction.DOWN);
 		BlockState blockstate = world.getBlockState(blockpos);
-		if (blockstate.getBlock() == this && blockstate.get(BOTTOM))
+		if (blockstate.getBlock() == this && blockstate.getValue(BOTTOM))
 		{
-			saveTE = world.getTileEntity(blockpos);
+			saveTE = world.getBlockEntity(blockpos);
 			saveState = blockstate;
 		}
 	}
@@ -156,16 +156,17 @@ public class VendingMachine extends RotateContainerBase
 	{
 		if (saveTE != null)
 		{
-			builder.withNullableParameter(LootParameters.BLOCK_ENTITY, saveTE);
+			builder.withOptionalParameter(LootContextParams.BLOCK_ENTITY, saveTE);
 			state = saveState;
 			saveTE = null;
 		}
+		// XXX might need to get slow mode by using PlayerEvent.HarvestCheck (ugh)
 		if (!MyConfig.minable)
 			return Collections.emptyList();
 		List<ItemStack> ret = super.getDrops(state, builder);
 		if (!ret.isEmpty())
 		{
-			TileEntity entity = builder.get(LootParameters.BLOCK_ENTITY);
+			BlockEntity entity = builder.getParameter(LootContextParams.BLOCK_ENTITY);
 			if (entity instanceof VendingMachineTileEntity)
 			{
 				VendingMachineTileEntity vte = (VendingMachineTileEntity) entity;
@@ -173,7 +174,7 @@ public class VendingMachine extends RotateContainerBase
 				{
 					if (e.getItem() == ModItems.VENDING_MACHINE)
 					{
-						CompoundNBT tag = e.getOrCreateTag();
+						CompoundTag tag = e.getOrCreateTag();
 						vte.writeMined(tag);
 					}
 				}
@@ -183,27 +184,22 @@ public class VendingMachine extends RotateContainerBase
 	}
 
 	@Override
-	public PushReaction getPushReaction(BlockState state) {
+	public PushReaction getPistonPushReaction(BlockState state) {
 		return PushReaction.BLOCK;
 	}
 
 	@Override
-	public BlockRenderType getRenderType(BlockState state) {
-		return BlockRenderType.MODEL;
+	public RenderShape getRenderShape(BlockState state) {
+		return RenderShape.MODEL;
 	}
 
 	@Override
-	public boolean hasTileEntity(BlockState state) {
-		return state.get(BOTTOM);
+	public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+		return state.getValue(BOTTOM) ? new VendingMachineTileEntity(pos, state) : null;
 	}
 
 	@Override
-	public TileEntity createNewTileEntity(IBlockReader worldIn) {
-		return new VendingMachineTileEntity();
-	}
-
-	@Override
-	protected void fillStateContainer(Builder<Block, BlockState> builder) {
+	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
 		builder.add(HORIZONTAL_FACING, BOTTOM);
 	}
 }
