@@ -25,7 +25,6 @@ import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.trading.Merchant;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
@@ -49,22 +48,22 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 	@Override
 	public void load(CompoundTag compound)
 	{
+		super.load(compound);
 		stockTime = compound.getLong("stockTime");
 		fixed = compound.getBoolean("fixed");
 		offers = new MerchantOffers(compound);
 		if (offers.isEmpty())
 			offers = null;
-		super.load(compound);
 	}
 
 	@Override
-	public CompoundTag save(CompoundTag compound)
+	protected void saveAdditional(CompoundTag compound)
 	{
+		super.saveAdditional(compound);
 		compound.putLong("stockTime", stockTime);
 		compound.putBoolean("fixed", fixed);
 		if (offers != null)
 			compound.merge(offers.createTag());
-		return super.save(compound);
 	}
 
 	public void readMined(CompoundTag compound)
@@ -148,11 +147,6 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 	}
 
 	@Override
-	public Level getLevel() {
-		return level;
-	}
-
-	@Override
 	public int getVillagerXp() {
 		return 0;
 	}
@@ -169,6 +163,11 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 	@Override
 	public SoundEvent getNotifyTradeSound() {
 		return SoundEvents.VILLAGER_YES;
+	}
+
+	@Override
+	public boolean isClientSide() {
+		return level.isClientSide;
 	}
 
 	public void openGui(Player player) {

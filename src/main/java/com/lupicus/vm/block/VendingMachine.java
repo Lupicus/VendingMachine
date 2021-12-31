@@ -111,7 +111,7 @@ public class VendingMachine extends RotateContainerBase
 	}
 
 	@Override
-	public boolean removedByPlayer(BlockState state, Level world, BlockPos pos, Player player,
+	public boolean onDestroyedByPlayer(BlockState state, Level world, BlockPos pos, Player player,
 			boolean willHarvest, FluidState fluid)
 	{
 		boolean flag = !world.isClientSide;
@@ -121,7 +121,7 @@ public class VendingMachine extends RotateContainerBase
 			if (!state.getValue(BOTTOM))
 				saveMainBlock(world, pos);
 		}
-		boolean removed = super.removedByPlayer(state, world, pos, player, willHarvest, fluid);
+		boolean removed = super.onDestroyedByPlayer(state, world, pos, player, willHarvest, fluid);
 		if (flag && !(removed && willHarvest))
 			saveTE = null;
 		return removed;
@@ -160,7 +160,6 @@ public class VendingMachine extends RotateContainerBase
 			state = saveState;
 			saveTE = null;
 		}
-		// XXX might need to get slow mode by using PlayerEvent.HarvestCheck (ugh)
 		if (!MyConfig.minable)
 			return Collections.emptyList();
 		List<ItemStack> ret = super.getDrops(state, builder);

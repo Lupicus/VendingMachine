@@ -1,11 +1,10 @@
+/*.launch
+/.settings/
 /bin/
 /build/
-/old_stuff/
 /run/
-/runClient.launch
-/runData.launch
-/runServer.launch
 /.gradle/
-/.settings/
-/.classpath
 /.project
+/.classpath
+/old_stuff/
+/libs/

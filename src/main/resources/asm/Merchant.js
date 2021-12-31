@@ -32,7 +32,7 @@ function initializeCoreMod() {
     }
 }
 
-// add the test: if (!(this.merchant instanceof Entity)) return;
+// add the test: if (!(this.trader instanceof Entity)) return;
 function patch_m_40077_(obj) {
 	var f1 = asmapi.mapField('f_40027_') // trader
 	var n1 = "net/minecraft/world/entity/Entity"
