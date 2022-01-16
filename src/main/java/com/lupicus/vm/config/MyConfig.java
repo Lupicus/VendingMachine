@@ -20,6 +20,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.item.Rarity;
 import net.minecraft.item.SpawnEggItem;
+import net.minecraft.util.RegistryKey;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
@@ -415,9 +416,9 @@ public class MyConfig
 			return;
 		}
 
-		for (Entry<ResourceLocation, Item> entry : reg.getEntries())
+		for (Entry<RegistryKey<Item>, Item> entry : reg.getEntries())
 		{
-			if (name.equals(entry.getKey().getNamespace()))
+			if (name.equals(entry.getKey().func_240901_a_().getNamespace()))
 			{
 				Item item = entry.getValue();
 				Rarity rarity = map.get(item);
