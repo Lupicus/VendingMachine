@@ -7,12 +7,19 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 
+import javax.annotation.Nullable;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.lupicus.vm.Main;
 
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
@@ -38,6 +45,7 @@ import net.minecraftforge.registries.IForgeRegistry;
 public class MyConfig
 {
 	private static final Logger LOGGER = LogManager.getLogger();
+	private static final int ITEM_COUNT = 7;
 	public static final Common COMMON;
 	public static final ForgeConfigSpec COMMON_SPEC;
 	static
@@ -70,11 +78,12 @@ public class MyConfig
 	public static Item uncommonItem;
 	public static Item rareItem;
 	public static Item epicItem;
-	public static boolean[] fixedExtended = new boolean[7];
-	public static Item[] fixedItems = new Item[7];
-	public static int[] fixedAmount = new int[7];
-	public static int[] fixedUses = new int[7];
-	public static ItemStack[] fixedPayment = new ItemStack[7];
+	public static boolean[] fixedExtended = new boolean[ITEM_COUNT];
+	public static Item[] fixedItems = new Item[ITEM_COUNT];
+	public static CompoundTag[] fixedTags = new CompoundTag[ITEM_COUNT];
+	public static int[] fixedAmount = new int[ITEM_COUNT];
+	public static int[] fixedUses = new int[ITEM_COUNT];
+	public static ItemStack[] fixedPayment = new ItemStack[ITEM_COUNT];
 
 	@SubscribeEvent
 	public static void onModConfigEvent(final ModConfigEvent configEvent)
@@ -155,48 +164,98 @@ public class MyConfig
 		{
 			fixedExtended[i] = false;
 			fixedItems[i] = Items.AIR;
+			fixedTags[i] = null;
 			if (i >= values.length)
 				continue;
 			try {
-				String[] part = values[i].split(",");
-				if (part.length == 5)
+				StringReader reader = new StringReader(values[i]);
+				ItemResult result = parseItemKey(reader);
+				ResourceLocation key = result.res;
+				if (ForgeRegistries.ITEMS.containsKey(key))
 				{
-					fixedExtended[i] = true;
-					fixedUses[i] = commonUses;
-					fixedPayment[i] = new ItemStack(commonItem, commonCost);
-					fixedAmount[i] = 1;
-					ResourceLocation key = new ResourceLocation(part[0]);
-					if (ForgeRegistries.ITEMS.containsKey(key))
-						fixedItems[i] = ForgeRegistries.ITEMS.getValue(key);
-					else
-						LOGGER.warn("Unknown item: " + key.toString());
-					fixedAmount[i] = Integer.parseInt(part[1]);
-					key = new ResourceLocation(part[2]);
-					if (ForgeRegistries.ITEMS.containsKey(key))
-					{
-						Item payItem = ForgeRegistries.ITEMS.getValue(key);
-						int cost = Integer.parseInt(part[3]);
-						fixedPayment[i] = new ItemStack(payItem, cost);
-					}
-					else
-						LOGGER.warn("Unknown item: " + key.toString());
-					fixedUses[i] = Integer.parseInt(part[4]);
+					fixedItems[i] = ForgeRegistries.ITEMS.getValue(key);
+					fixedTags[i] = result.nbt;
 				}
 				else
 				{
-					if (part.length != 1)
-						LOGGER.warn("Bad number of subfields: ", values[i]);
-					ResourceLocation key = new ResourceLocation(part[0]);
-					if (ForgeRegistries.ITEMS.containsKey(key))
-						fixedItems[i] = ForgeRegistries.ITEMS.getValue(key);
-					else
-						LOGGER.warn("Unknown item: " + key.toString());
+					LOGGER.warn("Unknown item: " + key.toString());
+					continue;
 				}
+				reader.skipWhitespace();
+				int cost = 0;
+				int count = 0;
+				while (count < 4 && reader.canRead() && reader.peek() == ',')
+				{
+					reader.skip();
+					reader.skipWhitespace();
+					if (count == 0)
+					{
+						fixedAmount[i] = reader.readInt();
+					}
+					else if (count == 1)
+					{
+						result = parseItemKey(reader);
+						key = result.res;
+						if (ForgeRegistries.ITEMS.containsKey(key))
+						{
+							Item payItem = ForgeRegistries.ITEMS.getValue(key);
+							fixedPayment[i] = new ItemStack(payItem);
+							if (result.nbt != null)
+								fixedPayment[i].getOrCreateTag().merge(result.nbt);
+						}
+						else
+						{
+							LOGGER.warn("Unknown item: " + key.toString());
+							fixedPayment[i] = null;
+						}
+					}
+					else if (count == 2)
+					{
+						cost = reader.readInt();	
+					}
+					else if (count == 3)
+					{
+						fixedUses[i] = reader.readInt();
+					}
+					reader.skipWhitespace();
+					count++;
+				}
+				if (count == 4 && fixedPayment[i] != null)
+				{
+					fixedPayment[i].setCount(cost);
+					fixedExtended[i] = true;
+				}
+				else if (count > 0)
+					LOGGER.warn("Bad number of subfields: " + values[i]);
+				if (reader.getRemainingLength() > 0)
+					LOGGER.warn("Ignoring extra data: " + reader.getRemaining());
 			}
 			catch (Exception e) {
 				LOGGER.warn("Bad entry: " + values[i]);
+				String msg = e.getMessage();
+				if (msg != null)
+					LOGGER.warn(msg);
 			}
 		}
+	}
+
+	private static ItemResult parseItemKey(StringReader sr) throws CommandSyntaxException
+	{
+		CompoundTag nbt = null;
+		String rl = sr.readUnquotedString();
+		if (sr.canRead() && sr.peek() == ':')
+		{
+			sr.skip();
+			rl = rl + ":" + sr.readUnquotedString();
+		}
+		sr.skipWhitespace();
+		if (sr.canRead() && sr.peek() == '{')
+		{
+			nbt = new TagParser(sr).readStruct();
+			if (nbt.isEmpty())
+				nbt = null;
+		}
+		return new ItemResult(new ResourceLocation(rl), nbt);
 	}
 
 	private static HashSet<String> stringSet(String[] values)
@@ -427,6 +486,18 @@ public class MyConfig
 				if (rarity != newRarity)
 					map.put(item, newRarity);
 			}
+		}
+	}
+
+	private static class ItemResult
+	{
+		public final ResourceLocation res;
+		public final CompoundTag nbt;
+
+		public ItemResult(ResourceLocation res, @Nullable CompoundTag nbt)
+		{
+			this.res = res;
+			this.nbt = nbt;
 		}
 	}
 
