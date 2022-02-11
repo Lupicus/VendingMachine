@@ -251,6 +251,8 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 				stack = items.get(this.level.random.nextInt(items.size()));
 			else
 				stack = new ItemStack(item);
+			if (MyConfig.fixedTags[i] != null)
+				stack.getOrCreateTag().merge(MyConfig.fixedTags[i]);
 			if (MyConfig.fixedExtended[i])
 			{
 				stack.grow(MyConfig.fixedAmount[i] - 1);
