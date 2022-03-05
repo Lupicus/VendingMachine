@@ -2,19 +2,19 @@ package com.lupicus.vm.datafix;
 
 import java.lang.reflect.Field;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
 
 import com.mojang.datafixers.DataFixUtils;
 import com.mojang.datafixers.DataFixerBuilder;
 import com.mojang.datafixers.schemas.Schema;
+import com.mojang.logging.LogUtils;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
 import net.minecraft.util.datafix.schemas.NamespacedSchema;
 
 public class ModFixers
 {
-	private static Logger LOGGER = LogManager.getLogger();
+	private static Logger LOGGER = LogUtils.getLogger();
 
 	@SuppressWarnings("unchecked")
 	public static void apply(DataFixerBuilder builder)
