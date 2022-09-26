@@ -1,5 +1,6 @@
 {
 	"parent": "block/block",
+	"render_type": "cutout",
 	"textures": {
     	"particle": "vm:block/vending_machine",
     	"front": "vm:block/vending_machine",

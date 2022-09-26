@@ -11,7 +11,8 @@ import com.lupicus.vm.sound.ModSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.TranslatableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -172,7 +173,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 
 	public void openGui(Player player) {
 		setTradingPlayer(player);
-		TranslatableComponent name = new TranslatableComponent(ModBlocks.VENDING_MACHINE.getDescriptionId());
+		MutableComponent name = Component.translatable(ModBlocks.VENDING_MACHINE.getDescriptionId());
 		this.openTradingScreen(player, name, 5);
 	}
 
@@ -186,7 +187,8 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 		set = (MyConfig.includeAllItems) ? ForgeRegistries.ITEMS.getValues() : MyConfig.includeItemSet;
 		set = new HashSet<>(set);
 		if (!MyConfig.includeGroupSet.contains("*") ||
-			!(MyConfig.excludeGroupSet.size() == 1 && MyConfig.excludeGroupSet.contains("!")))
+			!(MyConfig.excludeGroupSet.isEmpty() ||
+			  (MyConfig.excludeGroupSet.size() == 1 && MyConfig.excludeGroupSet.contains("!"))))
 			filterGroups(set);
 		if (!MyConfig.includeModSet.contains("*") || !MyConfig.excludeModSet.isEmpty())
 			filterMods(set);
@@ -312,7 +314,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 		boolean addAll = includeSet.contains("*");
 		set.removeIf(item ->
 		{
-			String name = item.getRegistryName().getNamespace();
+			String name = ForgeRegistries.ITEMS.getKey(item).getNamespace();
 			if (!(addAll || includeSet.contains(name)) ||
 				excludeSet.contains(name))
 				return true;
@@ -380,7 +382,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 		if (MyConfig.excludeGroupSet.contains(groupName))
 			return true;
 
-		String modName = item.getRegistryName().getNamespace();
+		String modName = ForgeRegistries.ITEMS.getKey(item).getNamespace();
 		if (!(MyConfig.includeModSet.contains("*") ||
 			  MyConfig.includeModSet.contains(modName)))
 			return true;

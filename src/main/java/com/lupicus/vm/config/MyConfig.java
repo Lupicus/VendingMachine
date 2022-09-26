@@ -111,18 +111,18 @@ public class MyConfig
 		uncommonItem = getItem(COMMON.uncommonItem.get());
 		rareItem = getItem(COMMON.rareItem.get());
 		epicItem = getItem(COMMON.epicItem.get());
-		extractFixed(extract(COMMON.fixedItems.get()));
-		includeModSet = stringSet(extract(COMMON.includeMods.get()));
-		excludeModSet = stringSet(extract(COMMON.excludeMods.get()));
-		String[] temp = extract(COMMON.includeItems.get());
+		extractFixed(toArray(COMMON.fixedItems.get()));
+		includeModSet = stringSet(toArray(COMMON.includeMods.get()));
+		excludeModSet = stringSet(toArray(COMMON.excludeMods.get()));
+		String[] temp = toArray(COMMON.includeItems.get());
 		includeAllItems = hasAll(temp);
 		if (includeAllItems)
 			temp = new String[0];
 		includeItemSet = itemSet(temp, "IncludeItems");
-		excludeItemSet = itemSet(extract(COMMON.excludeItems.get()), "ExcludeItems");
-		includeGroupSet = stringSet(extract(COMMON.includeGroups.get()));
-		excludeGroupSet = stringSet(extract(COMMON.excludeGroups.get()));
-		itemRarityMap = itemMap(extract(COMMON.itemRarity.get()));
+		excludeItemSet = itemSet(toArray(COMMON.excludeItems.get()), "ExcludeItems");
+		includeGroupSet = stringSet(toArray(COMMON.includeGroups.get()));
+		excludeGroupSet = stringSet(toArray(COMMON.excludeGroups.get()));
+		itemRarityMap = itemMap(toArray(COMMON.itemRarity.get()));
 		validateMods(includeModSet, "IncludeMods");
 		validateMods(excludeModSet, "ExcludeMods");
 		validateGroups(includeGroupSet, "IncludeGroups");
@@ -350,9 +350,14 @@ public class MyConfig
 		return ret;
 	}
 
-	private static String[] extract(List<? extends String> value)
+	private static String[] toArray(List<? extends String> value)
 	{
-		return value.toArray(new String[value.size()]);
+		return isEmpty(value) ? new String[0] : value.toArray(new String[value.size()]);
+	}
+
+	private static boolean isEmpty(List<? extends String> value)
+	{
+		return value.isEmpty() || (value.size() == 1 && value.get(0).isEmpty());
 	}
 
 	private static void validateMods(HashSet<String> set, String configName)
@@ -377,11 +382,9 @@ public class MyConfig
 				continue;
 			groups.add(g.getRecipeFolderName());
 		}
+		groups.add("*");
+		groups.add("!");
 		set.removeIf(name -> {
-			if (name.equals("*"))
-				return false;
-			if (name.equals("!"))
-				return false;
 			if (groups.contains(name))
 				return false;
 			LOGGER.warn("Unknown entry in " + configName + ": " + name);
@@ -429,13 +432,14 @@ public class MyConfig
 		}
 		else if (name.startsWith("eggset*"))
 		{
+			IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
 			String mode = name.substring(7);
 			if (mode.equals("all"))
 			{
 				ret.clear();
 				for (SpawnEggItem e : SpawnEggItem.eggs())
 				{
-					ResourceLocation res = e.getRegistryName();
+					ResourceLocation res = reg.getKey(e);
 					ret.add(res.toString());
 				}
 			}
@@ -447,7 +451,7 @@ public class MyConfig
 					EntityType<?> type = e.getType(null);
 					if (type.getCategory().isFriendly())
 						continue;
-					ResourceLocation res = e.getRegistryName();						
+					ResourceLocation res = reg.getKey(e);						
 					ret.add(res.toString());
 				}
 			}
@@ -459,7 +463,7 @@ public class MyConfig
 					EntityType<?> type = e.getType(null);
 					if (!type.getCategory().isFriendly())
 						continue;
-					ResourceLocation res = e.getRegistryName();						
+					ResourceLocation res = reg.getKey(e);						
 					ret.add(res.toString());
 				}
 			}

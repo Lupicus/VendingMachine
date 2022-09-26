@@ -14,12 +14,11 @@ public class ModSounds
 	{
 		ResourceLocation res = new ResourceLocation(Main.MODID, key);
 		SoundEvent ret = new SoundEvent(res);
-		ret.setRegistryName(res);
 		return ret;
 	}
 
 	public static void register(IForgeRegistry<SoundEvent> registry)
 	{
-		registry.register(VENDING_MACHINE_TAKE_RESULT);
+		registry.register(VENDING_MACHINE_TAKE_RESULT.getLocation(), VENDING_MACHINE_TAKE_RESULT);
 	}
 }
