@@ -21,22 +21,25 @@ import net.minecraft.item.OperatorOnlyItem;
 import net.minecraft.item.Rarity;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.INameable;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvent;
 import net.minecraft.util.SoundEvents;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ForgeRegistries;
 
-public class VendingMachineTileEntity extends TileEntity implements IMerchant
+public class VendingMachineTileEntity extends TileEntity implements IMerchant, INameable
 {
 	MerchantOffers offers = null;
 	PlayerEntity customer = null;
 	boolean fixed = MyConfig.fixed;
 	long stockTime = 0;
+	ITextComponent customName = null;
 	private static final long DAY = 24000;
 	private static final int ITEM_COUNT = 7;
 	private static final int RETRIES = 8;
@@ -53,6 +56,8 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		offers = new MerchantOffers(compound);
 		if (offers.isEmpty())
 			offers = null;
+		if (compound.contains("CustomName", 8))
+			customName = ITextComponent.Serializer.func_240643_a_(compound.getString("CustomName"));
 		super.func_230337_a_(state, compound);
 	}
 
@@ -63,6 +68,8 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		compound.putBoolean("fixed", fixed);
 		if (offers != null)
 			compound.merge(offers.write());
+		if (customName != null)
+			compound.putString("CustomName", ITextComponent.Serializer.toJson(customName));
 		return super.write(compound);
 	}
 
@@ -170,10 +177,23 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		return SoundEvents.ENTITY_VILLAGER_YES;
 	}
 
+	public void setCustomName(ITextComponent name) {
+		customName = name;
+	}
+
+	@Override
+	public ITextComponent getCustomName() {
+		return customName;
+	}
+
+	@Override
+	public ITextComponent getName() {
+		return customName != null ? customName : new TranslationTextComponent(ModBlocks.VENDING_MACHINE.getTranslationKey());
+	}
+
 	public void openGui(PlayerEntity player) {
 		setCustomer(player);
-		TranslationTextComponent name = new TranslationTextComponent(ModBlocks.VENDING_MACHINE.getTranslationKey());
-		this.openMerchantContainer(player, name, 5);
+		this.openMerchantContainer(player, getName(), 5);
 	}
 
 	private void fillOffers()
@@ -186,7 +206,8 @@ public class VendingMachineTileEntity extends TileEntity implements IMerchant
 		set = (MyConfig.includeAllItems) ? ForgeRegistries.ITEMS.getValues() : MyConfig.includeItemSet;
 		set = new HashSet<>(set);
 		if (!MyConfig.includeGroupSet.contains("*") ||
-			!(MyConfig.excludeGroupSet.size() == 1 && MyConfig.excludeGroupSet.contains("!")))
+			!(MyConfig.excludeGroupSet.isEmpty() ||
+			  (MyConfig.excludeGroupSet.size() == 1 && MyConfig.excludeGroupSet.contains("!"))))
 			filterGroups(set);
 		if (!MyConfig.includeModSet.contains("*") || !MyConfig.excludeModSet.isEmpty())
 			filterMods(set);

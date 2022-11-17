@@ -92,7 +92,12 @@ public class VendingMachine extends RotateContainerBase
 			{
 				TileEntity te = worldIn.getTileEntity(pos);
 				if (te instanceof VendingMachineTileEntity)
-					((VendingMachineTileEntity) te).readMined(tag);
+				{
+					VendingMachineTileEntity vte = (VendingMachineTileEntity) te;
+					vte.readMined(tag);
+					if (stack.hasDisplayName())
+						vte.setCustomName(stack.getDisplayName());
+				}
 			}
 		}
 	}
@@ -175,6 +180,8 @@ public class VendingMachine extends RotateContainerBase
 					{
 						CompoundNBT tag = e.getOrCreateTag();
 						vte.writeMined(tag);
+						if (vte.hasCustomName())
+							e.setDisplayName(vte.getCustomName());
 					}
 				}
 			}

@@ -377,11 +377,9 @@ public class MyConfig
 				continue;
 			groups.add(g.getPath());
 		}
+		groups.add("*");
+		groups.add("!");
 		set.removeIf(name -> {
-			if (name.equals("*"))
-				return false;
-			if (name.equals("!"))
-				return false;
 			if (groups.contains(name))
 				return false;
 			LOGGER.warn("Unknown entry in " + configName + ": " + name);
