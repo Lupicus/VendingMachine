@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 import com.lupicus.vm.block.ModBlocks;
+import com.lupicus.vm.block.VendingMachine;
 import com.lupicus.vm.config.MyConfig;
 import com.lupicus.vm.sound.ModSounds;
 
@@ -12,10 +13,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.GameMasterBlockItem;
@@ -32,39 +33,50 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ForgeRegistries;
 
-public class VendingMachineTileEntity extends BlockEntity implements Merchant
+public class VendingMachineTileEntity extends BlockEntity implements Merchant, Nameable
 {
+	final boolean enabled;
 	MerchantOffers offers = null;
 	Player customer = null;
 	boolean fixed = MyConfig.fixed;
 	long stockTime = 0;
+	Component customName = null;
 	private static final long DAY = 24000;
 	private static final int ITEM_COUNT = 7;
 	private static final int RETRIES = 8;
 
 	public VendingMachineTileEntity(BlockPos pos, BlockState state) {
 		super(ModTileEntities.VENDING_MACHINE, pos, state);
+		enabled = VendingMachine.isEnabled(state);
 	}
 
 	@Override
 	public void load(CompoundTag compound)
 	{
 		super.load(compound);
+		if (!enabled)
+			return;
 		stockTime = compound.getLong("stockTime");
 		fixed = compound.getBoolean("fixed");
 		offers = new MerchantOffers(compound);
 		if (offers.isEmpty())
 			offers = null;
+		if (compound.contains("CustomName", 8))
+			customName = Component.Serializer.fromJson(compound.getString("CustomName"));
 	}
 
 	@Override
 	protected void saveAdditional(CompoundTag compound)
 	{
 		super.saveAdditional(compound);
+		if (!enabled)
+			return;
 		compound.putLong("stockTime", stockTime);
 		compound.putBoolean("fixed", fixed);
 		if (offers != null)
 			compound.merge(offers.createTag());
+		if (customName != null)
+			compound.putString("CustomName", Component.Serializer.toJson(customName));
 	}
 
 	public void readMined(CompoundTag compound)
@@ -171,10 +183,23 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant
 		return level.isClientSide;
 	}
 
+	public void setCustomName(Component name) {
+		customName = name;
+	}
+
+	@Override
+	public Component getCustomName() {
+		return customName;
+	}
+
+	@Override
+	public Component getName() {
+		return customName != null ? customName : Component.translatable(ModBlocks.VENDING_MACHINE.getDescriptionId());
+	}
+
 	public void openGui(Player player) {
 		setTradingPlayer(player);
-		MutableComponent name = Component.translatable(ModBlocks.VENDING_MACHINE.getDescriptionId());
-		this.openTradingScreen(player, name, 5);
+		this.openTradingScreen(player, getName(), 5);
 	}
 
 	private void fillOffers()

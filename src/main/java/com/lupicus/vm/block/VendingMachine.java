@@ -56,6 +56,10 @@ public class VendingMachine extends RotateContainerBase
 		return 8;
 	}
 
+	public static boolean isEnabled(BlockState state) {
+		return state.getValue(BOTTOM);
+	}
+
 	@Override
 	@Nullable
 	public BlockState getStateForPlacement(BlockPlaceContext context)
@@ -92,7 +96,12 @@ public class VendingMachine extends RotateContainerBase
 			{
 				BlockEntity te = worldIn.getBlockEntity(pos);
 				if (te instanceof VendingMachineTileEntity)
-					((VendingMachineTileEntity) te).readMined(tag);
+				{
+					VendingMachineTileEntity vte = (VendingMachineTileEntity) te;
+					vte.readMined(tag);
+					if (stack.hasCustomHoverName())
+						vte.setCustomName(stack.getHoverName());
+				}
 			}
 		}
 	}
@@ -175,6 +184,8 @@ public class VendingMachine extends RotateContainerBase
 					{
 						CompoundTag tag = e.getOrCreateTag();
 						vte.writeMined(tag);
+						if (vte.hasCustomName())
+							e.setHoverName(vte.getCustomName());
 					}
 				}
 			}
@@ -194,7 +205,7 @@ public class VendingMachine extends RotateContainerBase
 
 	@Override
 	public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-		return state.getValue(BOTTOM) ? new VendingMachineTileEntity(pos, state) : null;
+		return new VendingMachineTileEntity(pos, state);
 	}
 
 	@Override
