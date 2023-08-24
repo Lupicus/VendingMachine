@@ -2,51 +2,66 @@ package com.lupicus.vm.world;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 import com.lupicus.vm.Main;
-import com.mojang.datafixers.util.Pair;
 
-import net.minecraft.data.BuiltinRegistries;
+import net.minecraft.core.Holder.Reference;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.data.worldgen.ProcessorLists;
-import net.minecraft.data.worldgen.VillagePools;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.levelgen.structure.pools.LegacySinglePoolElement;
 import net.minecraft.world.level.levelgen.structure.pools.StructurePoolElement;
 import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool;
 import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool.Projection;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorList;
 import net.minecraftforge.coremod.api.ASMAPI;
 
 public class ModVillage
 {
-	@SuppressWarnings({ "unchecked" })
-	public static void updatePools()
+	@SuppressWarnings("unchecked")
+	public static void updatePools(MinecraftServer server)
 	{
 		String[] biomeList = {"plains", "snowy", "savanna", "desert", "taiga"};
-		VillagePools.bootstrap();
+
+		RegistryAccess regs = server.registryAccess();
+		Optional<Registry<StructureTemplatePool>> opt = regs.registry(Registries.TEMPLATE_POOL);
+		if (opt.isEmpty())
+			return;
+
+		Registry<StructureTemplatePool> reg = opt.get();
 
 		try {
 			String name = ASMAPI.mapField("f_210560_"); // templates
 			Field field = StructureTemplatePool.class.getDeclaredField(name);
 			field.setAccessible(true);
-			String name2 = ASMAPI.mapField("f_210559_"); // rawTemplates
-			Field field2 = StructureTemplatePool.class.getDeclaredField(name2);
-			field2.setAccessible(true);
+
+			Optional<Reference<StructureProcessorList>> opt3 = Optional.empty();
+			Optional<Registry<StructureProcessorList>> opt2 = regs.registry(Registries.PROCESSOR_LIST);
+			if (opt2.isPresent())
+				opt3 = opt2.get().getHolder(ProcessorLists.MOSSIFY_10_PERCENT);
 
 			for (String biomeName : biomeList)
 			{
 				String baseName = "village/" + biomeName + "/houses";
-				StructureTemplatePool pattern = BuiltinRegistries.TEMPLATE_POOL.get(new ResourceLocation("minecraft:" + baseName));
+				StructureTemplatePool pattern = reg.get(new ResourceLocation("minecraft:" + baseName));
 				if (pattern == null)
 					continue;
 
-				Function<Projection, LegacySinglePoolElement> funpiece = StructurePoolElement.legacy(Main.MODID + ":" + baseName + "/" + biomeName + "_vending_machine_1", ProcessorLists.MOSSIFY_10_PERCENT);
+				String pieceName = Main.MODID + ":" + baseName + "/" + biomeName + "_vending_machine_1";
+				Function<Projection, LegacySinglePoolElement> funpiece;
+				if (opt3.isPresent())
+					funpiece = StructurePoolElement.legacy(pieceName, opt3.get());
+				else
+					funpiece = StructurePoolElement.legacy(pieceName);
 				StructurePoolElement piece = funpiece.apply(Projection.RIGID);
 
 				List<StructurePoolElement> list = (List<StructurePoolElement>) field.get(pattern);
 				list.add(piece);
-				List<Pair<StructurePoolElement, Integer>> list2 = (List<Pair<StructurePoolElement, Integer>>) field2.get(pattern);
-				list2.add(Pair.of(piece, 1));
 			}
 		}
 		catch (Exception e) {

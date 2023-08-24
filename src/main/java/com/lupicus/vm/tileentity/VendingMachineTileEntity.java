@@ -3,6 +3,9 @@ package com.lupicus.vm.tileentity;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 import com.lupicus.vm.block.ModBlocks;
 import com.lupicus.vm.block.VendingMachine;
@@ -11,6 +14,7 @@ import com.lupicus.vm.sound.ModSounds;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
@@ -18,10 +22,13 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.GameMasterBlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.ItemStackLinkedSet;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.trading.Merchant;
@@ -44,6 +51,11 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	private static final long DAY = 24000;
 	private static final int ITEM_COUNT = 7;
 	private static final int RETRIES = 8;
+	// shared data
+	private static int initId = -1;
+	private static Item[] inputItems;
+	private static Map<Item, Set<ItemStack>> groupMultiItems = new HashMap<>();
+	private static Map<Item, Set<ItemStack>> allMultiItems = new HashMap<>();
 
 	public VendingMachineTileEntity(BlockPos pos, BlockState state) {
 		super(ModTileEntities.VENDING_MACHINE, pos, state);
@@ -133,6 +145,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		}
 		if (offers == null)
 		{
+			initData();
 			if (fixed)
 				configOffers();
 			else
@@ -208,19 +221,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		int maxUses;
 
 		offers = new MerchantOffers();
-		Collection<Item> set;
-		set = (MyConfig.includeAllItems) ? ForgeRegistries.ITEMS.getValues() : MyConfig.includeItemSet;
-		set = new HashSet<>(set);
-		if (!MyConfig.includeGroupSet.contains("*") ||
-			!(MyConfig.excludeGroupSet.isEmpty() ||
-			  (MyConfig.excludeGroupSet.size() == 1 && MyConfig.excludeGroupSet.contains("!"))))
-			filterGroups(set);
-		if (!MyConfig.includeModSet.contains("*") || !MyConfig.excludeModSet.isEmpty())
-			filterMods(set);
-		filterRarity(set);
-		if (set.isEmpty())
-			set.add(Items.AIR);
-		Item[] values = set.toArray(new Item[0]);
+		Item[] values = inputItems;
 		NonNullList<ItemStack> items = NonNullList.create();
 
 		for (int i = 0; i < ITEM_COUNT; )
@@ -231,7 +232,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			ItemStack stack;
 			// handle Enchanted books and etc.
 			items.clear();
-			item.fillItemCategory(CreativeModeTab.TAB_SEARCH, items);
+			fillItems(groupMultiItems, item, items);
 			if (!items.isEmpty())
 				stack = items.get(this.level.random.nextInt(items.size()));
 			else
@@ -273,7 +274,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			ItemStack stack;
 			// handle Enchanted books and etc.
 			items.clear();
-			item.fillItemCategory(CreativeModeTab.TAB_SEARCH, items);
+			fillItems(allMultiItems, item, items);
 			if (!items.isEmpty())
 				stack = items.get(this.level.random.nextInt(items.size()));
 			else
@@ -316,20 +317,165 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		setChanged();
 	}
 
-	private void filterGroups(Collection<Item> set)
+	private void initData()
+	{
+		if (initId == MyConfig.loadId)
+			return;
+		initId = MyConfig.loadId;
+		CreativeModeTabs.tryRebuildTabContents(level.enabledFeatures(), true, level.registryAccess());
+		findMultiItems();
+		Set<Item> work = new HashSet<>();
+		Set<Item> tempItems = new HashSet<>();
+		buildGroupList(tempItems);
+		if (MyConfig.includeAllItems)
+			work = tempItems;
+		else
+		{
+			work.addAll(MyConfig.includeItemSet);
+			work.retainAll(tempItems);
+		}
+		if (!MyConfig.includeModSet.contains("*") || !MyConfig.excludeModSet.isEmpty())
+			filterMods(work);
+		filterRarity(work);
+		if (work.isEmpty())
+			work.add(Items.AIR);
+		inputItems = work.toArray(new Item[0]);
+	}
+
+	public static void clearData()
+	{
+		if (initId >= 0)
+			CreativeModeTabs.tryRebuildTabContents(FeatureFlagSet.of(), false, RegistryAccess.EMPTY);
+		initId = -1;
+		inputItems = null;
+		groupMultiItems.clear();
+		allMultiItems.clear();
+	}
+
+	private void buildGroupList(Collection<Item> set)
 	{
 		HashSet<String> includeSet = MyConfig.includeGroupSet;
 		HashSet<String> excludeSet = MyConfig.excludeGroupSet;
-		boolean addAll = includeSet.contains("*");
-		set.removeIf(item ->
+		if (includeSet.contains("*"))
 		{
-			CreativeModeTab group = item.getItemCategory();
-			String name = (group == null) ? "!" : group.getRecipeFolderName();
+			for (Entry<CreativeModeTab, String> e : MyConfig.groupName.entrySet())
+			{
+				if (excludeSet.contains(e.getValue()))
+					continue;
+				addItems(set, e.getKey().getSearchTabDisplayItems());
+			}
+			if (!excludeSet.contains("!"))
+				addNoGroupItems(set);
+		}
+		else
+		{
+			Set<String> workSet = new HashSet<>(includeSet);
+			workSet.removeAll(excludeSet);
+			for (Entry<CreativeModeTab, String> e : MyConfig.groupName.entrySet())
+			{
+				if (workSet.contains(e.getValue()))
+					addItems(set, e.getKey().getSearchTabDisplayItems());
+			}
+			if (workSet.contains("!"))
+				addNoGroupItems(set);
+		}
+	}
+
+	private void addItems(Collection<Item> set, Collection<ItemStack> stacks)
+	{
+		for (ItemStack stack : stacks)
+			set.add(stack.getItem());
+	}
+
+	private void addNoGroupItems(Collection<Item> set)
+	{
+		Set<Item> groupItems = new HashSet<>();
+		for (CreativeModeTab g : MyConfig.groupName.keySet())
+			addItems(groupItems, g.getSearchTabDisplayItems());
+
+		for (Item item : ForgeRegistries.ITEMS.getValues())
+		{
+			if (!groupItems.contains(item) && item.isEnabled(level.enabledFeatures()))
+				set.add(item);
+		}
+	}
+
+	private void findMultiItems()
+	{
+		Set<ItemStack> work = new HashSet<>();
+		HashSet<String> includeSet = MyConfig.includeGroupSet;
+		HashSet<String> excludeSet = MyConfig.excludeGroupSet;
+		boolean addAll = includeSet.contains("*");
+		for (Entry<CreativeModeTab, String> e : MyConfig.groupName.entrySet())
+		{
+			Map<Item, Set<ItemStack>> multiItems = groupMultiItems;
+			String name = e.getValue();
 			if (!(addAll || includeSet.contains(name)) ||
 				excludeSet.contains(name))
-				return true;
-			return false;
-		});
+				multiItems = allMultiItems;
+			CreativeModeTab g = e.getKey();
+			boolean dups = false;
+			Item lastItem = null;
+			ItemStack lastStack = null;
+			for (ItemStack s : g.getSearchTabDisplayItems())
+			{
+				Item item = s.getItem();
+				if (item == lastItem)
+				{
+					if (!dups)
+					{
+						dups = true;
+						work.add(lastStack);
+					}
+					work.add(s);
+				}
+				else
+				{
+					if (dups)
+					{
+						processItem(multiItems, lastItem, work);
+						work.clear();
+						dups = false;
+					}
+					lastItem = item;
+				}
+				lastStack = s;
+			}
+			if (dups)
+			{
+				processItem(multiItems, lastItem, work);
+				work.clear();
+			}
+		}
+		groupMultiItems.remove(Items.PAINTING);
+		allMultiItems.remove(Items.PAINTING);
+		for (Entry<Item, Set<ItemStack>> e : groupMultiItems.entrySet())
+			processItem(allMultiItems, e.getKey(), e.getValue());
+	}
+
+	private void processItem(Map<Item, Set<ItemStack>> multiItems, Item item, Set<ItemStack> work)
+	{
+		Set<ItemStack> work2 = multiItems.get(item);
+		if (work2 != null)
+		{
+			Set<ItemStack> temp = ItemStackLinkedSet.createTypeAndTagSet();
+			temp.addAll(work2);
+			temp.addAll(work);
+			if (temp.size() != work2.size())
+			{
+				work2.clear();
+				work2.addAll(temp);
+			}
+		}
+		else
+			multiItems.put(item, new HashSet<>(work));
+	}
+
+	private void fillItems(Map<Item, Set<ItemStack>> multiItems, Item item, NonNullList<ItemStack> items)
+	{
+		Set<ItemStack> v = multiItems.get(item);
+		if (v != null)
+			items.addAll(v);
 	}
 
 	private void filterMods(Collection<Item> set)
@@ -396,15 +542,6 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	private boolean invalidItem(Item item)
 	{
 		if (item instanceof GameMasterBlockItem)
-			return true;
-
-		CreativeModeTab group = item.getItemCategory();
-		String groupName = (group == null) ? "!" : group.getRecipeFolderName();
-		if (!(MyConfig.includeGroupSet.contains("*") ||
-			  MyConfig.includeGroupSet.contains(groupName)))
-			return true;
-
-		if (MyConfig.excludeGroupSet.contains(groupName))
 			return true;
 
 		String modName = ForgeRegistries.ITEMS.getKey(item).getNamespace();

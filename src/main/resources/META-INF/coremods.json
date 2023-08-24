@@ -1,4 +1,5 @@
 {
+	"CreativeModeTab": "asm/CreativeModeTab.js",
 	"Merchant": "asm/Merchant.js",
 	"DataFixers": "asm/DataFixers.js"
 }

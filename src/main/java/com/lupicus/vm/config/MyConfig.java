@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -18,12 +19,21 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet.Named;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
+import net.minecraft.network.chat.ComponentContents;
+import net.minecraft.network.chat.contents.LiteralContents;
+import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -55,9 +65,13 @@ public class MyConfig
 		COMMON = specPair.getLeft();
 	}
 
+	public static int loadId = 0;
+	private static boolean tagsLoaded = false;
+	private static boolean anyTags = false;
 	public static boolean restock;
 	public static boolean fixed;
 	public static boolean minable;
+	public static boolean villages;
 	public static boolean includeAllItems;
 	public static HashSet<Item> excludeItemSet;
 	public static HashSet<Item> includeItemSet;
@@ -84,6 +98,7 @@ public class MyConfig
 	public static int[] fixedAmount = new int[ITEM_COUNT];
 	public static int[] fixedUses = new int[ITEM_COUNT];
 	public static ItemStack[] fixedPayment = new ItemStack[ITEM_COUNT];
+	public static HashMap<CreativeModeTab, String> groupName = new HashMap<>();
 
 	@SubscribeEvent
 	public static void onModConfigEvent(final ModConfigEvent configEvent)
@@ -94,11 +109,29 @@ public class MyConfig
 		}
 	}
 
-	public static void bakeConfig()
+	public static void updateTags()
 	{
+		tagsLoaded = true;
+		if (!anyTags)
+			return;
+		if (!includeAllItems)
+		{
+			includeItemSet = null;
+			includeItemSet = itemSet(toArray(COMMON.includeItems.get()), "IncludeItems");
+		}
+		excludeItemSet = null;
+		excludeItemSet = itemSet(toArray(COMMON.excludeItems.get()), "ExcludeItems");
+		itemRarityMap = null;
+		itemRarityMap = itemMap(toArray(COMMON.itemRarity.get()));
+	}
+
+	public static synchronized void bakeConfig()
+	{
+		anyTags = false;
 		restock = COMMON.restock.get();
 		fixed = COMMON.fixed.get();
 		minable = COMMON.minable.get();
+		villages = COMMON.villages.get();
 		commonCost = COMMON.commonCost.get();
 		uncommonCost = COMMON.uncommonCost.get();
 		rareCost = COMMON.rareCost.get();
@@ -125,8 +158,12 @@ public class MyConfig
 		itemRarityMap = itemMap(toArray(COMMON.itemRarity.get()));
 		validateMods(includeModSet, "IncludeMods");
 		validateMods(excludeModSet, "ExcludeMods");
+		fillGroups();
 		validateGroups(includeGroupSet, "IncludeGroups");
 		validateGroups(excludeGroupSet, "ExcludeGroups");
+		loadId++;
+		if (loadId > 100)
+			loadId = 0;
 	}
 
 	private static boolean hasAll(String[] values)
@@ -151,8 +188,7 @@ public class MyConfig
 			else
 				LOGGER.warn("Unknown item: " + name);
 		}
-		catch (Exception e)
-		{
+		catch (Exception e) {
 			LOGGER.warn("Bad item: " + name);
 		}
 		return ret;
@@ -268,12 +304,44 @@ public class MyConfig
 		return set;
 	}
 
+	@SuppressWarnings("deprecation")
 	private static HashSet<Item> itemSet(String[] values, String configName)
 	{
 		HashSet<Item> ret = new HashSet<>();
 		IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
 		for (String name : values)
 		{
+			boolean remove = false;
+			if (name.charAt(0) == '-')
+			{
+				remove = true;
+				name = name.substring(1);
+			}
+			if (name.charAt(0) == '#')
+			{
+				try {
+					TagKey<Item> key = ItemTags.create(new ResourceLocation(name.substring(1)));
+					anyTags = true;
+					if (tagsLoaded)
+					{
+						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.getTag(key);
+						if (opt.isPresent())
+						{
+							List<Item> list = processTag(opt.get());
+							if (remove)
+								ret.removeAll(list);
+							else
+								ret.addAll(list);
+						}
+						else
+							LOGGER.warn("Unknown tag entry in " + configName + ": " + name);
+					}
+				}
+				catch (Exception e) {
+					LOGGER.warn("Bad tag entry in " + configName + ": " + name);
+				}
+				continue;
+			}
 			List<String> list = expandItem(name);
 			for (String entry : list)
 			{
@@ -282,13 +350,15 @@ public class MyConfig
 					if (reg.containsKey(key))
 					{
 						Item item = reg.getValue(key);
-						ret.add(item);
+						if (remove)
+							ret.remove(item);
+						else
+							ret.add(item);
 					}
 					else
 						LOGGER.warn("Unknown entry in " + configName + ": " + entry);
 				}
-				catch (Exception e)
-				{
+				catch (Exception e) {
 					LOGGER.warn("Bad entry in " + configName + ": " + entry);
 				}
 			}
@@ -296,6 +366,7 @@ public class MyConfig
 		return ret;
 	}
 
+	@SuppressWarnings("deprecation")
 	private static HashMap<Item, Rarity> itemMap(String[] values)
 	{
 		HashMap<Item, Rarity> ret = new HashMap<>();
@@ -323,6 +394,28 @@ public class MyConfig
 					;
 				}
 			}
+			if (part1.charAt(0) == '#')
+			{
+				try {
+					TagKey<Item> key = ItemTags.create(new ResourceLocation(part1.substring(1)));
+					anyTags = true;
+					if (tagsLoaded)
+					{
+						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.getTag(key);
+						if (opt.isPresent())
+						{
+							for (Item item : processTag(opt.get()))
+								ret.put(item, rarity);
+						}
+						else
+							LOGGER.warn("Unknown tag entry in ItemRarity: " + part1);
+					}
+				}
+				catch (Exception e) {
+					LOGGER.warn("Bad tag entry in ItemRarity: " + part1);
+				}
+				continue;
+			}
 			if (part1.endsWith(":*"))
 			{
 				expandMod(reg, ret, part1.substring(0, part1.length() - 2), rarity);
@@ -341,12 +434,19 @@ public class MyConfig
 					else
 						LOGGER.warn("Unknown entry in ItemRarity: " + entry);
 				}
-				catch (Exception e)
-				{
+				catch (Exception e) {
 					LOGGER.warn("Bad entry in ItemRarity: " + entry);
 				}
 			}
 		}
+		return ret;
+	}
+
+	private static List<Item> processTag(Named<Item> named)
+	{
+		List<Item> ret = new ArrayList<>();
+		for (Holder<Item> o : named)
+			ret.add(o.value());
 		return ret;
 	}
 
@@ -376,11 +476,10 @@ public class MyConfig
 	private static void validateGroups(HashSet<String> set, String configName)
 	{
 		HashSet<String> groups = new HashSet<>();
-		for (CreativeModeTab g : CreativeModeTab.TABS)
+		for (CreativeModeTab g : CreativeModeTabs.allTabs())
 		{
-			if (g == CreativeModeTab.TAB_HOTBAR || g == CreativeModeTab.TAB_SEARCH || g == CreativeModeTab.TAB_INVENTORY)
-				continue;
-			groups.add(g.getRecipeFolderName());
+			if (g.getType() == CreativeModeTab.Type.CATEGORY)
+				groups.add(groupName.get(g));
 		}
 		groups.add("*");
 		groups.add("!");
@@ -390,6 +489,28 @@ public class MyConfig
 			LOGGER.warn("Unknown entry in " + configName + ": " + name);
 			return true;
 		});
+	}
+
+	private static void fillGroups()
+	{
+		for (CreativeModeTab g : CreativeModeTabs.allTabs())
+		{
+			if (g.getType() != CreativeModeTab.Type.CATEGORY)
+				continue;
+			String name = "?";
+			ComponentContents c = g.getDisplayName().getContents();
+			if (c instanceof TranslatableContents tc)
+			{
+				name = tc.getKey();
+				if (name.startsWith("itemGroup."))
+					name = name.substring(10);
+			}
+			else if (c instanceof LiteralContents lc)
+			{
+				name = lc.text().replaceAll("\s", "");
+			}
+			groupName.put(g, name);
+		}
 	}
 
 	private static List<String> expandItem(String name)
@@ -510,6 +631,7 @@ public class MyConfig
 		public final BooleanValue restock;
 		public final BooleanValue fixed;
 		public final BooleanValue minable;
+		public final BooleanValue villages;
 		public final ConfigValue<String> commonItem;
 		public final ConfigValue<String> uncommonItem;
 		public final ConfigValue<String> rareItem;
@@ -541,14 +663,15 @@ public class MyConfig
 			List<String> excludeItemsList = Arrays.asList("minecraft:nether_star", "minecraft:beacon", "minecraft:bedrock",
 					"minecraft:shulker_box", "minecraft:colorset*shulker_box", "minecraft:elytra", "minecraft:end_portal_frame",
 					"minecraft:armorset*netherite", "minecraft:toolset*netherite", "minecraft:netherite_block", "minecraft:netherite_ingot",
-					"vm:vending_machine");
+					"minecraft:spawner", "vm:vending_machine");
 			List<String> includeGroupsList = Arrays.asList("*");
-			List<String> excludeGroupsList = Arrays.asList("!");
+			List<String> excludeGroupsList = Arrays.asList("!", "op");
 			List<String> itemRarityList = Arrays.asList("minecraft:emerald_block=1", "minecraft:diamond_block=1",
 					"minecraft:armorset*diamond=1", "minecraft:toolset*diamond=1", "minecraft:anvil=2", "minecraft:trident=3",
 					"minecraft:bell=2", "minecraft:conduit=3", "minecraft:nautilus_shell=1", "eggset*peaceful=1", "eggset*monster=2",
-					"minecraft:evoker_spawn_egg=3", "minecraft:netherite_scrap=2", "minecraft:ancient_debris=2",
-					"minecraft:axolotl_bucket=1");
+					"minecraft:evoker_spawn_egg=3", "minecraft:warden_spawn_egg=3", "minecraft:netherite_scrap=2",
+					"minecraft:ancient_debris=2", "minecraft:axolotl_bucket=1", "minecraft:echo_shard=3", "minecraft:lodestone=3",
+					"minecraft:respawn_anchor=1");
 			String baseTrans = Main.MODID + ".config.";
 			String sectionTrans;
 
@@ -567,6 +690,11 @@ public class MyConfig
 					.comment("Minable")
 					.translation(sectionTrans + "minable")
 					.define("Minable", false);
+
+			villages = builder
+					.comment("Add structure to Villages")
+					.translation(sectionTrans + "villages")
+					.define("Villages", true);
 
 			fixedItems = builder
 					.comment("Fixed items; item or item,amount,pay_item,cost,uses")
