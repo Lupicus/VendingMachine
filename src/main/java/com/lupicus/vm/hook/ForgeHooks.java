@@ -1,16 +1,17 @@
 package com.lupicus.vm.hook;
 
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackLinkedSet;
 import net.minecraftforge.common.util.MutableHashedLinkedMap;
-import net.minecraftforge.event.CreativeModeTabEvent;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.fml.ModLoader;
 
 public class ForgeHooks
 {
 	// copy code from ForgeHooksClient so we can call on server without crashing
-    public static void onCreativeModeTabBuildContents(CreativeModeTab tab, CreativeModeTab.DisplayItemsGenerator originalGenerator, CreativeModeTab.ItemDisplayParameters params, CreativeModeTab.Output output)
+    public static void onCreativeModeTabBuildContents(CreativeModeTab tab, ResourceKey<CreativeModeTab> tabKey, CreativeModeTab.DisplayItemsGenerator originalGenerator, CreativeModeTab.ItemDisplayParameters params, CreativeModeTab.Output output)
     {
         final var entries = new MutableHashedLinkedMap<ItemStack, CreativeModeTab.TabVisibility>(ItemStackLinkedSet.TYPE_AND_TAG,
             (key, left, right) -> {
@@ -27,7 +28,7 @@ public class ForgeHooks
             entries.put(stack, vis);
         });
 
-        ModLoader.get().postEvent(new CreativeModeTabEvent.BuildContents(tab, params, entries));
+        ModLoader.get().postEvent(new BuildCreativeModeTabContentsEvent(tab, tabKey, params, entries));
 
         for (var entry : entries)
             output.accept(entry.getKey(), entry.getValue());

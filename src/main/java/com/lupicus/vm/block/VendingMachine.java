@@ -31,8 +31,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.PushReaction;
-import net.minecraft.world.level.storage.loot.LootContext;
+import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import net.minecraft.world.phys.BlockHitResult;
 
@@ -161,7 +160,7 @@ public class VendingMachine extends RotateContainerBase
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public List<ItemStack> getDrops(BlockState state, LootContext.Builder builder)
+	public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder)
 	{
 		if (saveTE != null)
 		{
@@ -191,11 +190,6 @@ public class VendingMachine extends RotateContainerBase
 			}
 		}
 		return ret;
-	}
-
-	@Override
-	public PushReaction getPistonPushReaction(BlockState state) {
-		return PushReaction.BLOCK;
 	}
 
 	@Override

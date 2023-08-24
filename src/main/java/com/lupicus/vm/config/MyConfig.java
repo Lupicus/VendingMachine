@@ -663,7 +663,9 @@ public class MyConfig
 			List<String> excludeItemsList = Arrays.asList("minecraft:nether_star", "minecraft:beacon", "minecraft:bedrock",
 					"minecraft:shulker_box", "minecraft:colorset*shulker_box", "minecraft:elytra", "minecraft:end_portal_frame",
 					"minecraft:armorset*netherite", "minecraft:toolset*netherite", "minecraft:netherite_block", "minecraft:netherite_ingot",
-					"minecraft:spawner", "vm:vending_machine");
+					"minecraft:spawner", "minecraft:netherite_upgrade_smithing_template",
+					"#minecraft:trim_templates", "-minecraft:coast_armor_trim_smithing_template",
+					"vm:vending_machine");
 			List<String> includeGroupsList = Arrays.asList("*");
 			List<String> excludeGroupsList = Arrays.asList("!", "op");
 			List<String> itemRarityList = Arrays.asList("minecraft:emerald_block=1", "minecraft:diamond_block=1",
@@ -671,7 +673,8 @@ public class MyConfig
 					"minecraft:bell=2", "minecraft:conduit=3", "minecraft:nautilus_shell=1", "eggset*peaceful=1", "eggset*monster=2",
 					"minecraft:evoker_spawn_egg=3", "minecraft:warden_spawn_egg=3", "minecraft:netherite_scrap=2",
 					"minecraft:ancient_debris=2", "minecraft:axolotl_bucket=1", "minecraft:echo_shard=3", "minecraft:lodestone=3",
-					"minecraft:respawn_anchor=1");
+					"minecraft:respawn_anchor=1", "minecraft:coast_armor_trim_smithing_template=3",
+					"#minecraft:decorated_pot_sherds=1", "minecraft:arms_up_pottery_sherd=0");
 			String baseTrans = Main.MODID + ".config.";
 			String sectionTrans;
 
