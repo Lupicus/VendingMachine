@@ -322,17 +322,36 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		if (initId == MyConfig.loadId)
 			return;
 		initId = MyConfig.loadId;
-		CreativeModeTabs.tryRebuildTabContents(level.enabledFeatures(), true, level.registryAccess());
-		findMultiItems();
+		if (!MyConfig.disableGroups)
+		{
+			try {
+				CreativeModeTabs.tryRebuildTabContents(level.enabledFeatures(), true, level.registryAccess());
+			}
+			catch (Throwable t) {
+				MyConfig.setDisableGroups(t);
+			}
+		}
 		Set<Item> work = new HashSet<>();
-		Set<Item> tempItems = new HashSet<>();
-		buildGroupList(tempItems);
-		if (MyConfig.includeAllItems)
-			work = tempItems;
+		if (MyConfig.disableGroups)
+		{
+			fillMultiItems();
+			if (MyConfig.includeAllItems)
+				buildItemList(work);
+			else
+				work.addAll(MyConfig.includeItemSet);
+		}
 		else
 		{
-			work.addAll(MyConfig.includeItemSet);
-			work.retainAll(tempItems);
+			findMultiItems();
+			Set<Item> tempItems = new HashSet<>();
+			buildGroupList(tempItems);
+			if (MyConfig.includeAllItems)
+				work = tempItems;
+			else
+			{
+				work.addAll(MyConfig.includeItemSet);
+				work.retainAll(tempItems);
+			}
 		}
 		if (!MyConfig.includeModSet.contains("*") || !MyConfig.excludeModSet.isEmpty())
 			filterMods(work);
@@ -345,7 +364,12 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	public static void clearData()
 	{
 		if (initId >= 0)
-			CreativeModeTabs.tryRebuildTabContents(FeatureFlagSet.of(), false, RegistryAccess.EMPTY);
+		{
+			if (MyConfig.disableGroups)
+				MyConfig.disableGroups = false;
+			else
+				CreativeModeTabs.tryRebuildTabContents(FeatureFlagSet.of(), false, RegistryAccess.EMPTY);
+		}
 		initId = -1;
 		inputItems = null;
 		groupMultiItems.clear();
@@ -406,6 +430,8 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		HashSet<String> includeSet = MyConfig.includeGroupSet;
 		HashSet<String> excludeSet = MyConfig.excludeGroupSet;
 		boolean addAll = includeSet.contains("*");
+		groupMultiItems.clear();
+		allMultiItems.clear();
 		for (Entry<CreativeModeTab, String> e : MyConfig.groupName.entrySet())
 		{
 			Map<Item, Set<ItemStack>> multiItems = groupMultiItems;
@@ -469,6 +495,19 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		}
 		else
 			multiItems.put(item, new HashSet<>(work));
+	}
+
+	private void buildItemList(Collection<Item> set)
+	{
+		set.addAll(ForgeRegistries.ITEMS.getValues());
+	}
+
+	private void fillMultiItems()
+	{
+		groupMultiItems.clear();
+		allMultiItems.clear();
+		MultiItems.generate(groupMultiItems);
+		allMultiItems.putAll(groupMultiItems);
 	}
 
 	private void fillItems(Map<Item, Set<ItemStack>> multiItems, Item item, NonNullList<ItemStack> items)

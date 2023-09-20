@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:air",
+    "minecraft:bundle",
+    "minecraft:ender_dragon_spawn_egg",
+    "minecraft:filled_map",
+    "minecraft:knowledge_book",
+    "minecraft:petrified_oak_slab",
+    "minecraft:wither_spawn_egg",
+    "minecraft:written_book"
+  ]
+}

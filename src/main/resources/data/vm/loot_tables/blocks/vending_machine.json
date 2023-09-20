@@ -59,10 +59,11 @@
           "condition": "minecraft:block_state_property",
           "block": "vm:vending_machine",
           "properties": {
-            "bottom": true
+            "bottom": "true"
           }
         }
       ]
     }
-  ]
+  ],
+  "random_sequence": "vm:blocks/vending_machine"
 }

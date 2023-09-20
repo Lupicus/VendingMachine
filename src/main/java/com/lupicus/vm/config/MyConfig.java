@@ -1,5 +1,6 @@
 package com.lupicus.vm.config;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,6 +45,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
 import net.minecraftforge.common.ForgeConfigSpec.IntValue;
+import net.minecraftforge.common.ForgeSpawnEggItem;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
@@ -66,6 +68,7 @@ public class MyConfig
 	}
 
 	public static int loadId = 0;
+	public static boolean disableGroups = false;
 	private static boolean tagsLoaded = false;
 	private static boolean anyTags = false;
 	public static boolean restock;
@@ -109,6 +112,13 @@ public class MyConfig
 		}
 	}
 
+	public static void setDisableGroups(Throwable t)
+	{
+		LOGGER.error("Disabling tab group logic due to the following exception", t);
+		disableGroups = true;
+		updateItems();
+	}
+
 	public static void updateTags()
 	{
 		tagsLoaded = true;
@@ -123,6 +133,8 @@ public class MyConfig
 		excludeItemSet = itemSet(toArray(COMMON.excludeItems.get()), "ExcludeItems");
 		itemRarityMap = null;
 		itemRarityMap = itemMap(toArray(COMMON.itemRarity.get()));
+		if (disableGroups)
+			updateItems();
 	}
 
 	public static synchronized void bakeConfig()
@@ -161,9 +173,25 @@ public class MyConfig
 		fillGroups();
 		validateGroups(includeGroupSet, "IncludeGroups");
 		validateGroups(excludeGroupSet, "ExcludeGroups");
+		if (disableGroups)
+			updateItems();
 		loadId++;
 		if (loadId > 100)
 			loadId = 0;
+	}
+
+	private static void updateItems()
+	{
+		List<String> list = new ArrayList<>();
+		if (excludeGroupSet.contains("op"))
+			list.add("#vm:op");
+		if (excludeGroupSet.contains("!"))
+			list.add("#vm:nogroup");
+		if (!list.isEmpty())
+		{
+			HashSet<Item> set = itemSet(list.toArray(new String[0]), "ExcludeItems");
+			excludeItemSet.addAll(set);
+		}
 	}
 
 	private static boolean hasAll(String[] values)
@@ -247,7 +275,7 @@ public class MyConfig
 					}
 					else if (count == 2)
 					{
-						cost = reader.readInt();	
+						cost = reader.readInt();
 					}
 					else if (count == 3)
 					{
@@ -554,11 +582,12 @@ public class MyConfig
 		else if (name.startsWith("eggset*"))
 		{
 			IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
+			List<SpawnEggItem> allEggs = getAllEggs();
 			String mode = name.substring(7);
 			if (mode.equals("all"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.eggs())
+				for (SpawnEggItem e : allEggs)
 				{
 					ResourceLocation res = reg.getKey(e);
 					ret.add(res.toString());
@@ -567,24 +596,24 @@ public class MyConfig
 			else if (mode.equals("monster"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.eggs())
+				for (SpawnEggItem e : allEggs)
 				{
 					EntityType<?> type = e.getType(null);
 					if (type.getCategory().isFriendly())
 						continue;
-					ResourceLocation res = reg.getKey(e);						
+					ResourceLocation res = reg.getKey(e);
 					ret.add(res.toString());
 				}
 			}
 			else if (mode.equals("peaceful"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.eggs())
+				for (SpawnEggItem e : allEggs)
 				{
 					EntityType<?> type = e.getType(null);
 					if (!type.getCategory().isFriendly())
 						continue;
-					ResourceLocation res = reg.getKey(e);						
+					ResourceLocation res = reg.getKey(e);
 					ret.add(res.toString());
 				}
 			}
@@ -612,6 +641,24 @@ public class MyConfig
 					map.put(item, newRarity);
 			}
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<SpawnEggItem> getAllEggs()
+	{
+		List<SpawnEggItem> ret = new ArrayList<>();
+		SpawnEggItem.eggs().forEach(ret::add);
+		try {
+			Field f = ForgeSpawnEggItem.class.getDeclaredField("MOD_EGGS");
+			f.setAccessible(true);
+			Object o = f.get(null);
+			if (o != null)
+				ret.addAll((List<ForgeSpawnEggItem>) o);
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		return ret;
 	}
 
 	private static class ItemResult
