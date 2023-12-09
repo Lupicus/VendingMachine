@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="[46,)"
+loaderVersion="[49,)"
 license="MIT License"
 [[mods]]
 modId="vm"
@@ -12,12 +12,12 @@ description='''Vending Machine Mod'''
 [[dependencies.vm]]
     modId="forge"
     mandatory=true
-    versionRange="[46,)"
+    versionRange="[49,)"
     ordering="NONE"
     side="BOTH"
 [[dependencies.vm]]
     modId="minecraft"
     mandatory=true
-    versionRange="[1.20,1.21)"
+    versionRange="[1.20.4,1.21)"
     ordering="NONE"
     side="BOTH"

@@ -26,7 +26,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.ComponentContents;
-import net.minecraft.network.chat.contents.LiteralContents;
+import net.minecraft.network.chat.contents.PlainTextContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -533,7 +533,7 @@ public class MyConfig
 				if (name.startsWith("itemGroup."))
 					name = name.substring(10);
 			}
-			else if (c instanceof LiteralContents lc)
+			else if (c instanceof PlainTextContents lc)
 			{
 				name = lc.text().replaceAll("\s", "");
 			}

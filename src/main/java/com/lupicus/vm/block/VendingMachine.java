@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 import com.lupicus.vm.config.MyConfig;
 import com.lupicus.vm.item.ModItems;
 import com.lupicus.vm.tileentity.VendingMachineTileEntity;
+import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -37,10 +38,16 @@ import net.minecraft.world.phys.BlockHitResult;
 
 public class VendingMachine extends RotateContainerBase
 {
+	public static final MapCodec<VendingMachine> CODEC = simpleCodec(VendingMachine::new);
 	public static final BooleanProperty BOTTOM = BlockStateProperties.BOTTOM;
 	// save temp values to support drops (should be okay for main server thread only)
 	private BlockEntity saveTE;
 	private BlockState saveState;
+
+	@Override
+	protected MapCodec<VendingMachine> codec() {
+		return CODEC;
+	}
 
 	public VendingMachine(Properties properties) {
 		super(properties);

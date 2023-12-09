@@ -56,8 +56,7 @@ public class MultiItems
 		for (SuspiciousEffectHolder suspiciouseffectholder : list)
 		{
 			ItemStack itemstack = new ItemStack(Items.SUSPICIOUS_STEW);
-			SuspiciousStewItem.saveMobEffect(itemstack, suspiciouseffectholder.getSuspiciousEffect(),
-					suspiciouseffectholder.getEffectDuration());
+			SuspiciousStewItem.saveMobEffects(itemstack, suspiciouseffectholder.getSuspiciousEffects());
 			set.add(itemstack);
 		}
 		multiItems.put(Items.SUSPICIOUS_STEW, set);
