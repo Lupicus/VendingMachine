@@ -19,7 +19,6 @@ import net.minecraft.world.level.levelgen.structure.pools.StructurePoolElement;
 import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool;
 import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool.Projection;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorList;
-import net.minecraftforge.coremod.api.ASMAPI;
 
 public class ModVillage
 {
@@ -36,8 +35,7 @@ public class ModVillage
 		Registry<StructureTemplatePool> reg = opt.get();
 
 		try {
-			String name = ASMAPI.mapField("f_210560_"); // templates
-			Field field = StructureTemplatePool.class.getDeclaredField(name);
+			Field field = StructureTemplatePool.class.getDeclaredField("templates");
 			field.setAccessible(true);
 
 			Optional<Reference<StructureProcessorList>> opt3 = Optional.empty();

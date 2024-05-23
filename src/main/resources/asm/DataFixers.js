@@ -11,11 +11,11 @@ function initializeCoreMod() {
     		},
     		'transformer': function(classNode) {
     			var count = 0
-    			var fn = asmapi.mapMethod('m_274588_') // createFixerUpper
+    			var fn = "createFixerUpper"
     			for (var i = 0; i < classNode.methods.size(); ++i) {
     				var obj = classNode.methods.get(i)
     				if (obj.name == fn) {
-    					patch_m_274588_(obj)
+    					patch_createFixer(obj)
     					count++
     				}
     			}
@@ -28,8 +28,8 @@ function initializeCoreMod() {
 }
 
 // add hook
-function patch_m_274588_(obj) {
-	var n1 = asmapi.mapMethod('m_14513_') // addFixers
+function patch_createFixer(obj) {
+	var n1 = "addFixers"
 	var o1 = "net/minecraft/util/datafix/DataFixers"
 	var d1 = "(Lcom/mojang/datafixers/DataFixerBuilder;)V"
 	var node = asmapi.findFirstMethodCall(obj, asmapi.MethodType.STATIC, o1, n1, d1)

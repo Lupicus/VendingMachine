@@ -1,10 +1,6 @@
 {
     "pack": {
-        "description": {
-            "text": "Vending Machine resources"
-        },
-        "pack_format": 22,
-        "forge:resource_pack_format": 22,
-        "forge:data_pack_format": 26
+        "description": "Vending Machine resources",
+        "pack_format": 32
     }
 }

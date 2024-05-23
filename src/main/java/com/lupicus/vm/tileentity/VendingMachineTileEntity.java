@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import com.lupicus.vm.block.ModBlocks;
@@ -13,9 +14,12 @@ import com.lupicus.vm.config.MyConfig;
 import com.lupicus.vm.sound.ModSounds;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.HolderLookup.Provider;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -31,6 +35,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackLinkedSet;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.trading.ItemCost;
 import net.minecraft.world.item.trading.Merchant;
 import net.minecraft.world.item.trading.MerchantOffer;
 import net.minecraft.world.item.trading.MerchantOffers;
@@ -39,6 +44,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.server.ServerLifecycleHooks;
 
 public class VendingMachineTileEntity extends BlockEntity implements Merchant, Nameable
 {
@@ -63,32 +69,32 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	}
 
 	@Override
-	public void load(CompoundTag compound)
+	public void loadAdditional(CompoundTag compound, HolderLookup.Provider hp)
 	{
-		super.load(compound);
+		super.loadAdditional(compound, hp);
 		if (!enabled)
 			return;
 		stockTime = compound.getLong("stockTime");
 		fixed = compound.getBoolean("fixed");
-		offers = new MerchantOffers(compound);
+		offers = readOffers(compound, hp);
 		if (offers.isEmpty())
 			offers = null;
 		if (compound.contains("CustomName", 8))
-			customName = Component.Serializer.fromJson(compound.getString("CustomName"));
+			customName = parseCustomNameSafe(compound.getString("CustomName"), hp);
 	}
 
 	@Override
-	protected void saveAdditional(CompoundTag compound)
+	protected void saveAdditional(CompoundTag compound, HolderLookup.Provider hp)
 	{
-		super.saveAdditional(compound);
+		super.saveAdditional(compound, hp);
 		if (!enabled)
 			return;
 		compound.putLong("stockTime", stockTime);
 		compound.putBoolean("fixed", fixed);
 		if (offers != null)
-			compound.merge(offers.createTag());
+			compound.merge(getNbtOffers(hp));
 		if (customName != null)
-			compound.putString("CustomName", Component.Serializer.toJson(customName));
+			compound.putString("CustomName", Component.Serializer.toJson(customName, hp));
 	}
 
 	public void readMined(CompoundTag compound)
@@ -98,7 +104,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			stockTime = level.getDayTime();
 			stockTime -= Math.abs(stockTime % DAY);
 			fixed = compound.getBoolean("fixed");
-			offers = new MerchantOffers(compound);
+			offers = readOffers(compound, level.registryAccess());
 			if (offers.isEmpty())
 				offers = null;
 		}
@@ -109,7 +115,22 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		compound.putBoolean("mined", true);
 		compound.putBoolean("fixed", fixed);
 		if (offers != null)
-			compound.merge(offers.createTag());
+			compound.merge(getNbtOffers(level.registryAccess()));
+	}
+
+	private CompoundTag getNbtOffers(Provider hp)
+	{
+		return (CompoundTag) MerchantOffers.CODEC.encodeStart(level.registryAccess().createSerializationContext(NbtOps.INSTANCE), offers).getOrThrow();
+	}
+
+	private MerchantOffers readOffers(CompoundTag compound, Provider hp)
+	{
+		Optional<MerchantOffers> opt = MerchantOffers.CODEC
+				.parse(hp.createSerializationContext(NbtOps.INSTANCE), compound)
+				.resultOrPartial();
+		if (opt.isPresent())
+			return opt.get();
+		return new MerchantOffers();
 	}
 
 	@Override
@@ -239,7 +260,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 				stack = new ItemStack(item);
 			Rarity rarity = MyConfig.itemRarityMap.get(item);
 			if (rarity == null)
-				rarity = item.getRarity(stack);
+				rarity = item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON);
 			ItemStack payment = itemPayment(rarity);
 			if (payment.isEmpty() || invalidItem(item))
 			{
@@ -253,8 +274,11 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			{
 				maxUses = itemUses(rarity);
 			}
-			MerchantOffer offer = new MerchantOffer(payment, stack, maxUses, 0, 0);
-			offers.add(offer);
+			if (!stack.isEmpty())
+			{
+				MerchantOffer offer = new MerchantOffer(new ItemCost(payment.getItem(), payment.getCount()), stack, maxUses, 0, 0.0F);
+				offers.add(offer);
+			}
 			tryCount = 0;
 			++i;
 		}
@@ -279,8 +303,8 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 				stack = items.get(this.level.random.nextInt(items.size()));
 			else
 				stack = new ItemStack(item);
-			if (MyConfig.fixedTags[i] != null)
-				stack.getOrCreateTag().merge(MyConfig.fixedTags[i]);
+			if (MyConfig.fixedData[i] != null)
+				stack.applyComponents(MyConfig.fixedData[i]);
 			if (MyConfig.fixedExtended[i])
 			{
 				stack.grow(MyConfig.fixedAmount[i] - 1);
@@ -291,7 +315,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			{
 				Rarity rarity = MyConfig.itemRarityMap.get(item);
 				if (rarity == null)
-					rarity = item.getRarity(stack);
+					rarity = item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON);
 				payment = itemPayment(rarity);
 				if (payment.isEmpty())
 				{
@@ -303,8 +327,11 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 					maxUses = itemUses(rarity);
 				}
 			}
-			MerchantOffer offer = new MerchantOffer(payment, stack, maxUses, 0, 0);
-			offers.add(offer);
+			if (!stack.isEmpty())
+			{
+				MerchantOffer offer = new MerchantOffer(new ItemCost(payment.getItem(), payment.getCount()), stack, maxUses, 0, 0.0F);
+				offers.add(offer);
+			}
 		}
 	}
 
@@ -335,10 +362,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		if (MyConfig.disableGroups)
 		{
 			fillMultiItems();
-			if (MyConfig.includeAllItems)
-				buildItemList(work);
-			else
-				work.addAll(MyConfig.includeItemSet);
+			buildItemList(work);
 		}
 		else
 		{
@@ -368,7 +392,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			if (MyConfig.disableGroups)
 				MyConfig.disableGroups = false;
 			else
-				CreativeModeTabs.tryRebuildTabContents(FeatureFlagSet.of(), false, RegistryAccess.EMPTY);
+				CreativeModeTabs.tryRebuildTabContents(FeatureFlagSet.of(), false, ServerLifecycleHooks.getCurrentServer().registryAccess());
 		}
 		initId = -1;
 		inputItems = null;
@@ -484,7 +508,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		Set<ItemStack> work2 = multiItems.get(item);
 		if (work2 != null)
 		{
-			Set<ItemStack> temp = ItemStackLinkedSet.createTypeAndTagSet();
+			Set<ItemStack> temp = ItemStackLinkedSet.createTypeAndComponentsSet();
 			temp.addAll(work2);
 			temp.addAll(work);
 			if (temp.size() != work2.size())
@@ -499,14 +523,20 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 
 	private void buildItemList(Collection<Item> set)
 	{
-		set.addAll(ForgeRegistries.ITEMS.getValues());
+		Collection<Item> items = MyConfig.includeAllItems ? ForgeRegistries.ITEMS.getValues() : MyConfig.includeItemSet;
+		FeatureFlagSet featureFlagSet = level.enabledFeatures();
+		for (Item item : items)
+		{
+			if (item.isEnabled(featureFlagSet))
+				set.add(item);
+		}
 	}
 
 	private void fillMultiItems()
 	{
 		groupMultiItems.clear();
 		allMultiItems.clear();
-		MultiItems.generate(groupMultiItems);
+		MultiItems.generate(groupMultiItems, level.enabledFeatures());
 		allMultiItems.putAll(groupMultiItems);
 	}
 
@@ -534,7 +564,6 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 
 	private void filterRarity(Collection<Item> set)
 	{
-		ItemStack stack = new ItemStack(Items.AIR);
 		HashMap<Item, Rarity> map = MyConfig.itemRarityMap;
 		if (MyConfig.commonCost == 0)
 		{
@@ -542,7 +571,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			{
 				Rarity rarity = map.get(item);
 				if (rarity == null)
-					rarity = item.getRarity(stack);
+					rarity = item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON);
 				return (rarity == Rarity.COMMON);
 			});
 		}
@@ -552,7 +581,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			{
 				Rarity rarity = map.get(item);
 				if (rarity == null)
-					rarity = item.getRarity(stack);
+					rarity = item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON);
 				return (rarity == Rarity.UNCOMMON);
 			});
 		}
@@ -562,7 +591,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			{
 				Rarity rarity = map.get(item);
 				if (rarity == null)
-					rarity = item.getRarity(stack);
+					rarity = item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON);
 				return (rarity == Rarity.RARE);
 			});
 		}
@@ -572,7 +601,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			{
 				Rarity rarity = map.get(item);
 				if (rarity == null)
-					rarity = item.getRarity(stack);
+					rarity = item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON);
 				return (rarity == Rarity.EPIC);
 			});
 		}

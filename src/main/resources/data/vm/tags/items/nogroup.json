@@ -2,7 +2,6 @@
   "replace": false,
   "values": [
     "minecraft:air",
-    "minecraft:bundle",
     "minecraft:ender_dragon_spawn_egg",
     "minecraft:filled_map",
     "minecraft:knowledge_book",

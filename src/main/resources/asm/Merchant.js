@@ -16,11 +16,11 @@ function initializeCoreMod() {
     		},
     		'transformer': function(classNode) {
     			var count = 0
-    			var fn = asmapi.mapMethod('m_40077_') // playTradeSound
+    			var fn = "playTradeSound"
     			for (var i = 0; i < classNode.methods.size(); ++i) {
     				var obj = classNode.methods.get(i)
     				if (obj.name == fn) {
-    					patch_m_40077_(obj)
+    					patch_playSound(obj)
     					count++
     				}
     			}
@@ -33,8 +33,8 @@ function initializeCoreMod() {
 }
 
 // add the test: if (!(this.trader instanceof Entity)) return;
-function patch_m_40077_(obj) {
-	var f1 = asmapi.mapField('f_40027_') // trader
+function patch_playSound(obj) {
+	var f1 = "trader"
 	var n1 = "net/minecraft/world/entity/Entity"
 	var node = asmapi.findFirstInstruction(obj, opc.CHECKCAST)
 	if (node && node.desc == n1) {

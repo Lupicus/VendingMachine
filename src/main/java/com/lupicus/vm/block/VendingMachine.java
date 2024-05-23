@@ -12,13 +12,13 @@ import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Explosion;
@@ -76,8 +76,8 @@ public class VendingMachine extends RotateContainerBase
 	}
 
 	@Override
-	public InteractionResult use(BlockState state, Level worldIn, BlockPos pos, Player player,
-			InteractionHand handIn, BlockHitResult hit)
+	public InteractionResult useWithoutItem(BlockState state, Level worldIn, BlockPos pos, Player player,
+			BlockHitResult hit)
 	{
 		if (!worldIn.isClientSide)
 		{
@@ -90,6 +90,7 @@ public class VendingMachine extends RotateContainerBase
 		return InteractionResult.SUCCESS;
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public void setPlacedBy(Level worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack)
 	{
@@ -97,22 +98,19 @@ public class VendingMachine extends RotateContainerBase
 		if (!worldIn.isClientSide)
 		{
 			worldIn.setBlock(pos.above(), state.setValue(BOTTOM, false), 3);
-			CompoundTag tag = stack.getTag();
-			if (tag != null)
+			BlockEntity te = worldIn.getBlockEntity(pos);
+			if (te instanceof VendingMachineTileEntity)
 			{
-				BlockEntity te = worldIn.getBlockEntity(pos);
-				if (te instanceof VendingMachineTileEntity)
-				{
-					VendingMachineTileEntity vte = (VendingMachineTileEntity) te;
-					vte.readMined(tag);
-					if (stack.hasCustomHoverName())
-						vte.setCustomName(stack.getHoverName());
-				}
+				VendingMachineTileEntity vte = (VendingMachineTileEntity) te;
+				CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+				if (data != null)
+					vte.readMined(data.getUnsafe());
+				if (stack.has(DataComponents.CUSTOM_NAME))
+					vte.setCustomName(stack.getHoverName());
 			}
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public void onRemove(BlockState state, Level worldIn, BlockPos pos, BlockState newState, boolean isMoving)
 	{
@@ -165,7 +163,6 @@ public class VendingMachine extends RotateContainerBase
 		}
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder)
 	{
@@ -188,10 +185,11 @@ public class VendingMachine extends RotateContainerBase
 				{
 					if (e.getItem() == ModItems.VENDING_MACHINE)
 					{
-						CompoundTag tag = e.getOrCreateTag();
-						vte.writeMined(tag);
+						CustomData data = e.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
+						data = data.update(t -> vte.writeMined(t));
+						e.set(DataComponents.CUSTOM_DATA, data);
 						if (vte.hasCustomName())
-							e.setHoverName(vte.getCustomName());
+							e.set(DataComponents.CUSTOM_NAME, vte.getCustomName());
 					}
 				}
 			}

@@ -15,16 +15,17 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 
 import com.lupicus.vm.Main;
-
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 
+import net.minecraft.commands.arguments.item.ItemParser;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet.Named;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.ComponentContents;
 import net.minecraft.network.chat.contents.PlainTextContents;
 import net.minecraft.network.chat.contents.TranslatableContents;
@@ -97,7 +98,7 @@ public class MyConfig
 	public static Item epicItem;
 	public static boolean[] fixedExtended = new boolean[ITEM_COUNT];
 	public static Item[] fixedItems = new Item[ITEM_COUNT];
-	public static CompoundTag[] fixedTags = new CompoundTag[ITEM_COUNT];
+	public static DataComponentMap[] fixedData = new DataComponentMap[ITEM_COUNT];
 	public static int[] fixedAmount = new int[ITEM_COUNT];
 	public static int[] fixedUses = new int[ITEM_COUNT];
 	public static ItemStack[] fixedPayment = new ItemStack[ITEM_COUNT];
@@ -228,7 +229,7 @@ public class MyConfig
 		{
 			fixedExtended[i] = false;
 			fixedItems[i] = Items.AIR;
-			fixedTags[i] = null;
+			fixedData[i] = null;
 			if (i >= values.length)
 				continue;
 			try {
@@ -238,7 +239,7 @@ public class MyConfig
 				if (ForgeRegistries.ITEMS.containsKey(key))
 				{
 					fixedItems[i] = ForgeRegistries.ITEMS.getValue(key);
-					fixedTags[i] = result.nbt;
+					fixedData[i] = result.data;
 				}
 				else
 				{
@@ -264,8 +265,8 @@ public class MyConfig
 						{
 							Item payItem = ForgeRegistries.ITEMS.getValue(key);
 							fixedPayment[i] = new ItemStack(payItem);
-							if (result.nbt != null)
-								fixedPayment[i].getOrCreateTag().merge(result.nbt);
+							if (result.data != null)
+								fixedPayment[i].applyComponents(result.data);
 						}
 						else
 						{
@@ -305,21 +306,23 @@ public class MyConfig
 
 	private static ItemResult parseItemKey(StringReader sr) throws CommandSyntaxException
 	{
-		CompoundTag nbt = null;
-		String rl = sr.readUnquotedString();
-		if (sr.canRead() && sr.peek() == ':')
+		DataComponentMap data = null;
+		int cursor = sr.getCursor();
+		ResourceLocation rl = ResourceLocation.read(sr);
+		if (sr.canRead() && sr.peek() == '[')
 		{
-			sr.skip();
-			rl = rl + ":" + sr.readUnquotedString();
+			sr.setCursor(cursor);
+			try {
+				ItemParser.ItemResult result = new ItemParser(RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY)).parse(sr);
+				data = result.components();
+				if (data != null && data.isEmpty())
+					data = null;
+			}
+			catch (Exception e) {
+				;
+			}
 		}
-		sr.skipWhitespace();
-		if (sr.canRead() && sr.peek() == '{')
-		{
-			nbt = new TagParser(sr).readStruct();
-			if (nbt.isEmpty())
-				nbt = null;
-		}
-		return new ItemResult(new ResourceLocation(rl), nbt);
+		return new ItemResult(rl, data);
 	}
 
 	private static HashSet<String> stringSet(String[] values)
@@ -332,7 +335,6 @@ public class MyConfig
 		return set;
 	}
 
-	@SuppressWarnings("deprecation")
 	private static HashSet<Item> itemSet(String[] values, String configName)
 	{
 		HashSet<Item> ret = new HashSet<>();
@@ -394,7 +396,6 @@ public class MyConfig
 		return ret;
 	}
 
-	@SuppressWarnings("deprecation")
 	private static HashMap<Item, Rarity> itemMap(String[] values)
 	{
 		HashMap<Item, Rarity> ret = new HashMap<>();
@@ -598,7 +599,7 @@ public class MyConfig
 				ret.clear();
 				for (SpawnEggItem e : allEggs)
 				{
-					EntityType<?> type = e.getType(null);
+					EntityType<?> type = e.getType(new ItemStack(e));
 					if (type.getCategory().isFriendly())
 						continue;
 					ResourceLocation res = reg.getKey(e);
@@ -610,7 +611,7 @@ public class MyConfig
 				ret.clear();
 				for (SpawnEggItem e : allEggs)
 				{
-					EntityType<?> type = e.getType(null);
+					EntityType<?> type = e.getType(new ItemStack(e));
 					if (!type.getCategory().isFriendly())
 						continue;
 					ResourceLocation res = reg.getKey(e);
@@ -636,7 +637,7 @@ public class MyConfig
 				Item item = entry.getValue();
 				Rarity rarity = map.get(item);
 				if (rarity == null)
-					rarity = item.getRarity(new ItemStack(item));
+					rarity = item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON);
 				if (rarity != newRarity)
 					map.put(item, newRarity);
 			}
@@ -664,12 +665,12 @@ public class MyConfig
 	private static class ItemResult
 	{
 		public final ResourceLocation res;
-		public final CompoundTag nbt;
+		public final DataComponentMap data;
 
-		public ItemResult(ResourceLocation res, @Nullable CompoundTag nbt)
+		public ItemResult(ResourceLocation res, @Nullable DataComponentMap data)
 		{
 			this.res = res;
-			this.nbt = nbt;
+			this.data = data;
 		}
 	}
 

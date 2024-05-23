@@ -10,11 +10,11 @@ function initializeCoreMod() {
     		},
     		'transformer': function(classNode) {
     			var count = 0
-    			var fn = asmapi.mapMethod('m_269498_') // buildContents
+    			var fn = "buildContents"
     			for (var i = 0; i < classNode.methods.size(); ++i) {
     				var obj = classNode.methods.get(i)
     				if (obj.name == fn) {
-    					patch_m_269498_(obj)
+    					patch_build(obj)
     					count++
     				}
     			}
@@ -27,7 +27,7 @@ function initializeCoreMod() {
 }
 
 // change owner class to ours
-function patch_m_269498_(obj) {
+function patch_build(obj) {
 	var node = asmapi.findFirstInstruction(obj, opc.INVOKESTATIC)
 	while (node && node.name != 'onCreativeModeTabBuildContents') {
 		var index = obj.instructions.indexOf(node)
