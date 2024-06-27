@@ -38,7 +38,7 @@ function patch_createFixer(obj) {
 		var n2 = "apply"
 		var d2 = "(Lcom/mojang/datafixers/DataFixerBuilder;)V"
 		var op2 = asmapi.buildMethodCall(o2, n2, d2, asmapi.MethodType.STATIC)
-		var op1 = new VarInsnNode(opc.ALOAD, 1) // datafixerbuilder
+		var op1 = new VarInsnNode(opc.ALOAD, 0) // datafixerbuilder
 		var list = asmapi.listOf(op1, op2)
 		obj.instructions.insert(node, list)
 	}

@@ -46,7 +46,7 @@ public class ModVillage
 			for (String biomeName : biomeList)
 			{
 				String baseName = "village/" + biomeName + "/houses";
-				StructureTemplatePool pattern = reg.get(new ResourceLocation("minecraft:" + baseName));
+				StructureTemplatePool pattern = reg.get(ResourceLocation.parse("minecraft:" + baseName));
 				if (pattern == null)
 					continue;
 

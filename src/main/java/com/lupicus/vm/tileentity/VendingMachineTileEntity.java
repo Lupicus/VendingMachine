@@ -536,7 +536,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	{
 		groupMultiItems.clear();
 		allMultiItems.clear();
-		MultiItems.generate(groupMultiItems, level.enabledFeatures());
+		MultiItems.generate(groupMultiItems, level.registryAccess(), level.enabledFeatures());
 		allMultiItems.putAll(groupMultiItems);
 	}
 

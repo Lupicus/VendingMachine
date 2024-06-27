@@ -1,13 +1,19 @@
 package com.lupicus.vm.tileentity;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import net.minecraft.core.Holder;
+import net.minecraft.core.Holder.Reference;
+import net.minecraft.core.HolderLookup.RegistryLookup;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.InstrumentTags;
 import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.item.EnchantedBookItem;
@@ -25,24 +31,29 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.block.SuspiciousEffectHolder;
-import net.minecraftforge.registries.ForgeRegistries;
 
 public class MultiItems
 {
-	public static void generate(Map<Item, Set<ItemStack>> multiItems, FeatureFlagSet fs)
+	public static void generate(Map<Item, Set<ItemStack>> multiItems, RegistryAccess regs, FeatureFlagSet fs)
 	{
 		Set<ItemStack> work = ItemStackLinkedSet.createTypeAndComponentsSet();
-		for (Enchantment enchantment : ForgeRegistries.ENCHANTMENTS)
+		Optional<RegistryLookup<Enchantment>> orl = regs.lookup(Registries.ENCHANTMENT);
+		if (orl.isPresent())
 		{
-			if (enchantment.isEnabled(fs) && enchantment.isAllowedOnBooks())
+			Iterator<Reference<Enchantment>> iter = orl.get().listElements().iterator();
+			Reference<Enchantment> ench;
+			Enchantment enchantment;
+			while (iter.hasNext())
 			{
+				ench = iter.next();
+				enchantment = ench.value();
 				for (int i = enchantment.getMinLevel(); i <= enchantment.getMaxLevel(); ++i)
 				{
-					work.add(EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantment, i)));
+					work.add(EnchantedBookItem.createForEnchantment(new EnchantmentInstance(ench, i)));
 				}
 			}
+			multiItems.put(Items.ENCHANTED_BOOK, work);
 		}
-		multiItems.put(Items.ENCHANTED_BOOK, work);
 
 		addPotionEffects(multiItems, Items.TIPPED_ARROW, fs);
 		addPotionEffects(multiItems, Items.POTION, fs);

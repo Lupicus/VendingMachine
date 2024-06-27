@@ -23,7 +23,7 @@ import net.minecraft.commands.arguments.item.ItemParser;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet.Named;
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.ComponentContents;
@@ -98,7 +98,7 @@ public class MyConfig
 	public static Item epicItem;
 	public static boolean[] fixedExtended = new boolean[ITEM_COUNT];
 	public static Item[] fixedItems = new Item[ITEM_COUNT];
-	public static DataComponentMap[] fixedData = new DataComponentMap[ITEM_COUNT];
+	public static DataComponentPatch[] fixedData = new DataComponentPatch[ITEM_COUNT];
 	public static int[] fixedAmount = new int[ITEM_COUNT];
 	public static int[] fixedUses = new int[ITEM_COUNT];
 	public static ItemStack[] fixedPayment = new ItemStack[ITEM_COUNT];
@@ -209,7 +209,7 @@ public class MyConfig
 	{
 		Item ret = Items.EMERALD;
 		try {
-			ResourceLocation key = new ResourceLocation(name);
+			ResourceLocation key = ResourceLocation.parse(name);
 			if (ForgeRegistries.ITEMS.containsKey(key))
 			{
 				ret = ForgeRegistries.ITEMS.getValue(key);
@@ -306,7 +306,7 @@ public class MyConfig
 
 	private static ItemResult parseItemKey(StringReader sr) throws CommandSyntaxException
 	{
-		DataComponentMap data = null;
+		DataComponentPatch data = null;
 		int cursor = sr.getCursor();
 		ResourceLocation rl = ResourceLocation.read(sr);
 		if (sr.canRead() && sr.peek() == '[')
@@ -350,7 +350,7 @@ public class MyConfig
 			if (name.charAt(0) == '#')
 			{
 				try {
-					TagKey<Item> key = ItemTags.create(new ResourceLocation(name.substring(1)));
+					TagKey<Item> key = ItemTags.create(ResourceLocation.parse(name.substring(1)));
 					anyTags = true;
 					if (tagsLoaded)
 					{
@@ -376,7 +376,7 @@ public class MyConfig
 			for (String entry : list)
 			{
 				try {
-					ResourceLocation key = new ResourceLocation(entry);
+					ResourceLocation key = ResourceLocation.parse(entry);
 					if (reg.containsKey(key))
 					{
 						Item item = reg.getValue(key);
@@ -426,7 +426,7 @@ public class MyConfig
 			if (part1.charAt(0) == '#')
 			{
 				try {
-					TagKey<Item> key = ItemTags.create(new ResourceLocation(part1.substring(1)));
+					TagKey<Item> key = ItemTags.create(ResourceLocation.parse(part1.substring(1)));
 					anyTags = true;
 					if (tagsLoaded)
 					{
@@ -454,7 +454,7 @@ public class MyConfig
 			for (String entry : list)
 			{
 				try {
-					ResourceLocation key = new ResourceLocation(entry);
+					ResourceLocation key = ResourceLocation.parse(entry);
 					if (reg.containsKey(key))
 					{
 						Item item = reg.getValue(key);
@@ -665,9 +665,9 @@ public class MyConfig
 	private static class ItemResult
 	{
 		public final ResourceLocation res;
-		public final DataComponentMap data;
+		public final DataComponentPatch data;
 
-		public ItemResult(ResourceLocation res, @Nullable DataComponentMap data)
+		public ItemResult(ResourceLocation res, @Nullable DataComponentPatch data)
 		{
 			this.res = res;
 			this.data = data;
@@ -711,8 +711,8 @@ public class MyConfig
 			List<String> excludeItemsList = Arrays.asList("minecraft:nether_star", "minecraft:beacon", "minecraft:bedrock",
 					"minecraft:shulker_box", "minecraft:colorset*shulker_box", "minecraft:elytra", "minecraft:end_portal_frame",
 					"minecraft:armorset*netherite", "minecraft:toolset*netherite", "minecraft:netherite_block", "minecraft:netherite_ingot",
-					"minecraft:spawner", "minecraft:netherite_upgrade_smithing_template",
-					"#minecraft:trim_templates", "-minecraft:coast_armor_trim_smithing_template",
+					"minecraft:spawner", "minecraft:trial_spawner", "minecraft:netherite_upgrade_smithing_template",
+					"#minecraft:trim_templates", "-minecraft:coast_armor_trim_smithing_template", "minecraft:vault",
 					"vm:vending_machine");
 			List<String> includeGroupsList = Arrays.asList("*");
 			List<String> excludeGroupsList = Arrays.asList("!", "op");
@@ -722,7 +722,8 @@ public class MyConfig
 					"minecraft:evoker_spawn_egg=3", "minecraft:warden_spawn_egg=3", "minecraft:netherite_scrap=2",
 					"minecraft:ancient_debris=2", "minecraft:axolotl_bucket=1", "minecraft:echo_shard=3", "minecraft:lodestone=3",
 					"minecraft:respawn_anchor=1", "minecraft:coast_armor_trim_smithing_template=3",
-					"#minecraft:decorated_pot_sherds=1", "minecraft:arms_up_pottery_sherd=0");
+					"#minecraft:decorated_pot_sherds=1", "minecraft:arms_up_pottery_sherd=0", "minecraft:trial_key=1",
+					"minecraft:ominous_trial_key=2");
 			String baseTrans = Main.MODID + ".config.";
 			String sectionTrans;
 
