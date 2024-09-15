@@ -10,6 +10,7 @@ import java.util.Set;
 import com.lupicus.vm.block.ModBlocks;
 import com.lupicus.vm.block.VendingMachine;
 import com.lupicus.vm.config.MyConfig;
+import com.lupicus.vm.config.MyConfig.CostData;
 import com.lupicus.vm.sound.ModSounds;
 
 import net.minecraft.core.BlockPos;
@@ -219,6 +220,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	{
 		int tryCount = 0;
 		int maxUses;
+		CostData cost;
 
 		offers = new MerchantOffers();
 		Item[] values = inputItems;
@@ -240,20 +242,25 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			Rarity rarity = MyConfig.itemRarityMap.get(item);
 			if (rarity == null)
 				rarity = item.getRarity(stack);
-			ItemStack payment = itemPayment(rarity);
-			if (payment.isEmpty() || invalidItem(item))
+			cost = MyConfig.itemCostMap.get(item);
+			if (cost != null)
+			{
+				maxUses = (cost.maxUses > 0) ? cost.maxUses : itemUses(rarity);
+			}
+			else
+			{
+				cost = itemPayment(rarity);
+				maxUses = cost.maxUses;
+			}
+			if (cost.costA.isEmpty() || invalidItem(item))
 			{
 				if (tryCount < RETRIES)
 					continue;
 				stack.setCount(0);
-				payment = itemPayment(defRarity());
+				cost = itemPayment(defRarity());
 				maxUses = 1;
 			}
-			else
-			{
-				maxUses = itemUses(rarity);
-			}
-			MerchantOffer offer = new MerchantOffer(payment, stack, maxUses, 0, 0);
+			MerchantOffer offer = new MerchantOffer(cost.costA, cost.costB, stack, maxUses, 0, 0);
 			offers.add(offer);
 			tryCount = 0;
 			++i;
@@ -263,7 +270,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	private void configOffers()
 	{
 		int maxUses;
-		ItemStack payment;
+		CostData cost;
 
 		offers = new MerchantOffers();
 		NonNullList<ItemStack> items = NonNullList.create();
@@ -284,26 +291,32 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			if (MyConfig.fixedExtended[i])
 			{
 				stack.grow(MyConfig.fixedAmount[i] - 1);
+				cost = new CostData();
+				cost.costA = MyConfig.fixedPayment[i];
 				maxUses = MyConfig.fixedUses[i];
-				payment = MyConfig.fixedPayment[i];
 			}
 			else
 			{
 				Rarity rarity = MyConfig.itemRarityMap.get(item);
 				if (rarity == null)
 					rarity = item.getRarity(stack);
-				payment = itemPayment(rarity);
-				if (payment.isEmpty())
+				cost = MyConfig.itemCostMap.get(item);
+				if (cost != null)
 				{
-					payment = itemPayment(Rarity.EPIC);
-					maxUses = itemUses(Rarity.EPIC);
+					maxUses = (cost.maxUses > 0) ? cost.maxUses : itemUses(rarity);
 				}
 				else
 				{
-					maxUses = itemUses(rarity);
+					cost = itemPayment(rarity);
+					maxUses = cost.maxUses;
+				}
+				if (cost.costA.isEmpty())
+				{
+					cost = itemPayment(Rarity.EPIC);
+					maxUses = cost.maxUses;
 				}
 			}
-			MerchantOffer offer = new MerchantOffer(payment, stack, maxUses, 0, 0);
+			MerchantOffer offer = new MerchantOffer(cost.costA, cost.costB, stack, maxUses, 0, 0);
 			offers.add(offer);
 		}
 	}
@@ -335,10 +348,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		if (MyConfig.disableGroups)
 		{
 			fillMultiItems();
-			if (MyConfig.includeAllItems)
-				buildItemList(work);
-			else
-				work.addAll(MyConfig.includeItemSet);
+			buildItemList(work);
 		}
 		else
 		{
@@ -355,7 +365,8 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		}
 		if (!MyConfig.includeModSet.contains("*") || !MyConfig.excludeModSet.isEmpty())
 			filterMods(work);
-		filterRarity(work);
+		addItemList(work, MyConfig.addItemSet);
+		filterCost(work);
 		if (work.isEmpty())
 			work.add(Items.AIR);
 		inputItems = work.toArray(new Item[0]);
@@ -499,7 +510,23 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 
 	private void buildItemList(Collection<Item> set)
 	{
-		set.addAll(ForgeRegistries.ITEMS.getValues());
+		Collection<Item> items = MyConfig.includeAllItems ? ForgeRegistries.ITEMS.getValues() : MyConfig.includeItemSet;
+		FeatureFlagSet featureFlagSet = level.enabledFeatures();
+		for (Item item : items)
+		{
+			if (item.isEnabled(featureFlagSet))
+				set.add(item);
+		}
+	}
+
+	private void addItemList(Collection<Item> set, Collection<Item> items)
+	{
+		FeatureFlagSet featureFlagSet = level.enabledFeatures();
+		for (Item item : items)
+		{
+			if (item.isEnabled(featureFlagSet))
+				set.add(item);
+		}
 	}
 
 	private void fillMultiItems()
@@ -532,10 +559,11 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		});
 	}
 
-	private void filterRarity(Collection<Item> set)
+	private void filterCost(Collection<Item> set)
 	{
 		ItemStack stack = new ItemStack(Items.AIR);
 		HashMap<Item, Rarity> map = MyConfig.itemRarityMap;
+		HashMap<Item, CostData> map2 = MyConfig.itemCostMap;
 		if (MyConfig.commonCost == 0)
 		{
 			set.removeIf(item ->
@@ -543,7 +571,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 				Rarity rarity = map.get(item);
 				if (rarity == null)
 					rarity = item.getRarity(stack);
-				return (rarity == Rarity.COMMON);
+				return (rarity == Rarity.COMMON) && !map2.containsKey(item);
 			});
 		}
 		if (MyConfig.uncommonCost == 0)
@@ -553,7 +581,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 				Rarity rarity = map.get(item);
 				if (rarity == null)
 					rarity = item.getRarity(stack);
-				return (rarity == Rarity.UNCOMMON);
+				return (rarity == Rarity.UNCOMMON) && !map2.containsKey(item);
 			});
 		}
 		if (MyConfig.rareCost == 0)
@@ -563,7 +591,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 				Rarity rarity = map.get(item);
 				if (rarity == null)
 					rarity = item.getRarity(stack);
-				return (rarity == Rarity.RARE);
+				return (rarity == Rarity.RARE) && !map2.containsKey(item);
 			});
 		}
 		if (MyConfig.epicCost == 0)
@@ -573,13 +601,16 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 				Rarity rarity = map.get(item);
 				if (rarity == null)
 					rarity = item.getRarity(stack);
-				return (rarity == Rarity.EPIC);
+				return (rarity == Rarity.EPIC) && !map2.containsKey(item);
 			});
 		}
 	}
 
 	private boolean invalidItem(Item item)
 	{
+		if (MyConfig.addItemSet.contains(item))
+			return false;
+
 		if (item instanceof GameMasterBlockItem)
 			return true;
 
@@ -612,51 +643,20 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		return Rarity.EPIC;
 	}
 
-	private ItemStack itemPayment(Rarity type)
+	private CostData itemPayment(Rarity type)
 	{
-		ItemStack cost;
-		switch (type)
+		CostData cost = MyConfig.rarityCostMap.get(type);
+		if (cost == null)
 		{
-		case COMMON:
-			cost = new ItemStack(MyConfig.commonItem, MyConfig.commonCost);
-			break;
-		case EPIC:
-			cost = new ItemStack(MyConfig.epicItem, MyConfig.epicCost);
-			break;
-		case RARE:
-			cost = new ItemStack(MyConfig.rareItem, MyConfig.rareCost);
-			break;
-		case UNCOMMON:
-			cost = new ItemStack(MyConfig.uncommonItem, MyConfig.uncommonCost);
-			break;
-		default:
-			cost = ItemStack.EMPTY;
-			break;
+			cost = new CostData();
+			cost.costA = ItemStack.EMPTY;
 		}
 		return cost;
 	}
 
 	private int itemUses(Rarity type)
 	{
-		int maxUses;
-		switch (type)
-		{
-		case COMMON:
-			maxUses = MyConfig.commonUses;
-			break;
-		case EPIC:
-			maxUses = MyConfig.epicUses;
-			break;
-		case RARE:
-			maxUses = MyConfig.rareUses;
-			break;
-		case UNCOMMON:
-			maxUses = MyConfig.uncommonUses;
-			break;
-		default:
-			maxUses = 0;
-			break;
-		}
-		return maxUses;
+		CostData cost = MyConfig.rarityCostMap.get(type);
+		return (cost != null) ? cost.maxUses : 0;
 	}
 }
