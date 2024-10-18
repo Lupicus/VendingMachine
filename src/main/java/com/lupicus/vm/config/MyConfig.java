@@ -1,11 +1,13 @@
 package com.lupicus.vm.config;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
 
 import javax.annotation.Nullable;
 
@@ -18,10 +20,15 @@ import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.logging.LogUtils;
 
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet.Named;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.DyeColor;
@@ -34,6 +41,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
 import net.minecraftforge.common.ForgeConfigSpec.IntValue;
+import net.minecraftforge.common.ForgeSpawnEggItem;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
@@ -55,17 +63,23 @@ public class MyConfig
 		COMMON = specPair.getLeft();
 	}
 
+	private static boolean tagsLoaded = false;
+	private static boolean anyTags = false;
 	public static boolean restock;
 	public static boolean fixed;
 	public static boolean minable;
+	public static boolean villages;
 	public static boolean includeAllItems;
 	public static HashSet<Item> excludeItemSet;
 	public static HashSet<Item> includeItemSet;
+	public static HashSet<Item> addItemSet;
 	public static HashSet<String> excludeModSet;
 	public static HashSet<String> includeModSet;
 	public static HashSet<String> excludeGroupSet;
 	public static HashSet<String> includeGroupSet;
 	public static HashMap<Item, Rarity> itemRarityMap;
+	public static HashMap<Item, CostData> itemCostMap;
+	public static HashMap<Rarity, CostData> rarityCostMap;
 	public static int commonCost;
 	public static int uncommonCost;
 	public static int rareCost;
@@ -94,11 +108,33 @@ public class MyConfig
 		}
 	}
 
-	public static void bakeConfig()
+	public static void updateTags()
 	{
+		tagsLoaded = true;
+		if (!anyTags)
+			return;
+		if (!includeAllItems)
+		{
+			includeItemSet = null;
+			includeItemSet = itemSet(toArray(COMMON.includeItems.get()), "IncludeItems");
+		}
+		excludeItemSet = null;
+		excludeItemSet = itemSet(toArray(COMMON.excludeItems.get()), "ExcludeItems");
+		addItemSet = null;
+		addItemSet = itemSet(toArray(COMMON.addItems.get()), "AddItems");
+		itemRarityMap = null;
+		itemRarityMap = itemMap(toArray(COMMON.itemRarity.get()));
+		itemCostMap = null;
+		itemCostMap = costMap(toArray(COMMON.itemCost.get()));
+	}
+
+	public static synchronized void bakeConfig()
+	{
+		anyTags = false;
 		restock = COMMON.restock.get();
 		fixed = COMMON.fixed.get();
 		minable = COMMON.minable.get();
+		villages = COMMON.villages.get();
 		commonCost = COMMON.commonCost.get();
 		uncommonCost = COMMON.uncommonCost.get();
 		rareCost = COMMON.rareCost.get();
@@ -111,6 +147,7 @@ public class MyConfig
 		uncommonItem = getItem(COMMON.uncommonItem.get());
 		rareItem = getItem(COMMON.rareItem.get());
 		epicItem = getItem(COMMON.epicItem.get());
+		rarityCostMap = rarityCostMap();
 		extractFixed(toArray(COMMON.fixedItems.get()));
 		includeModSet = stringSet(toArray(COMMON.includeMods.get()));
 		excludeModSet = stringSet(toArray(COMMON.excludeMods.get()));
@@ -120,9 +157,11 @@ public class MyConfig
 			temp = new String[0];
 		includeItemSet = itemSet(temp, "IncludeItems");
 		excludeItemSet = itemSet(toArray(COMMON.excludeItems.get()), "ExcludeItems");
+		addItemSet = itemSet(toArray(COMMON.addItems.get()), "AddItems");
 		includeGroupSet = stringSet(toArray(COMMON.includeGroups.get()));
 		excludeGroupSet = stringSet(toArray(COMMON.excludeGroups.get()));
 		itemRarityMap = itemMap(toArray(COMMON.itemRarity.get()));
+		itemCostMap = costMap(toArray(COMMON.itemCost.get()));
 		validateMods(includeModSet, "IncludeMods");
 		validateMods(excludeModSet, "ExcludeMods");
 		validateGroups(includeGroupSet, "IncludeGroups");
@@ -151,8 +190,7 @@ public class MyConfig
 			else
 				LOGGER.warn("Unknown item: " + name);
 		}
-		catch (Exception e)
-		{
+		catch (Exception e) {
 			LOGGER.warn("Bad item: " + name);
 		}
 		return ret;
@@ -211,7 +249,7 @@ public class MyConfig
 					}
 					else if (count == 2)
 					{
-						cost = reader.readInt();	
+						cost = reader.readInt();
 					}
 					else if (count == 3)
 					{
@@ -268,12 +306,49 @@ public class MyConfig
 		return set;
 	}
 
+	@SuppressWarnings("deprecation")
 	private static HashSet<Item> itemSet(String[] values, String configName)
 	{
 		HashSet<Item> ret = new HashSet<>();
 		IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
 		for (String name : values)
 		{
+			boolean remove = false;
+			if (name.charAt(0) == '-')
+			{
+				remove = true;
+				name = name.substring(1);
+			}
+			if (name.charAt(0) == '#')
+			{
+				try {
+					TagKey<Item> key = ItemTags.create(new ResourceLocation(name.substring(1)));
+					anyTags = true;
+					if (tagsLoaded)
+					{
+						Optional<Named<Item>> opt = Registry.ITEM.getTag(key);
+						if (opt.isPresent())
+						{
+							List<Item> list = processTag(opt.get());
+							if (remove)
+								ret.removeAll(list);
+							else
+								ret.addAll(list);
+						}
+						else
+							LOGGER.warn("Unknown tag entry in " + configName + ": " + name);
+					}
+				}
+				catch (Exception e) {
+					LOGGER.warn("Bad tag entry in " + configName + ": " + name);
+				}
+				continue;
+			}
+			if (name.endsWith(":*"))
+			{
+				expandMod(reg, ret, name.substring(0, name.length() - 2), configName, remove);
+				continue;
+			}
 			List<String> list = expandItem(name);
 			for (String entry : list)
 			{
@@ -282,13 +357,15 @@ public class MyConfig
 					if (reg.containsKey(key))
 					{
 						Item item = reg.getValue(key);
-						ret.add(item);
+						if (remove)
+							ret.remove(item);
+						else
+							ret.add(item);
 					}
 					else
 						LOGGER.warn("Unknown entry in " + configName + ": " + entry);
 				}
-				catch (Exception e)
-				{
+				catch (Exception e) {
 					LOGGER.warn("Bad entry in " + configName + ": " + entry);
 				}
 			}
@@ -296,6 +373,7 @@ public class MyConfig
 		return ret;
 	}
 
+	@SuppressWarnings("deprecation")
 	private static HashMap<Item, Rarity> itemMap(String[] values)
 	{
 		HashMap<Item, Rarity> ret = new HashMap<>();
@@ -323,6 +401,28 @@ public class MyConfig
 					;
 				}
 			}
+			if (part1.charAt(0) == '#')
+			{
+				try {
+					TagKey<Item> key = ItemTags.create(new ResourceLocation(part1.substring(1)));
+					anyTags = true;
+					if (tagsLoaded)
+					{
+						Optional<Named<Item>> opt = Registry.ITEM.getTag(key);
+						if (opt.isPresent())
+						{
+							for (Item item : processTag(opt.get()))
+								ret.put(item, rarity);
+						}
+						else
+							LOGGER.warn("Unknown tag entry in ItemRarity: " + part1);
+					}
+				}
+				catch (Exception e) {
+					LOGGER.warn("Bad tag entry in ItemRarity: " + part1);
+				}
+				continue;
+			}
 			if (part1.endsWith(":*"))
 			{
 				expandMod(reg, ret, part1.substring(0, part1.length() - 2), rarity);
@@ -341,12 +441,165 @@ public class MyConfig
 					else
 						LOGGER.warn("Unknown entry in ItemRarity: " + entry);
 				}
-				catch (Exception e)
-				{
+				catch (Exception e) {
 					LOGGER.warn("Bad entry in ItemRarity: " + entry);
 				}
 			}
 		}
+		return ret;
+	}
+
+	private static HashMap<Rarity, CostData> rarityCostMap()
+	{
+		HashMap<Rarity, CostData> ret = new HashMap<>();
+		ret.put(Rarity.COMMON, makeCost(commonItem, commonCost, commonUses));
+		ret.put(Rarity.UNCOMMON, makeCost(uncommonItem, uncommonCost, uncommonUses));
+		ret.put(Rarity.RARE, makeCost(rareItem, rareCost, rareUses));
+		ret.put(Rarity.EPIC, makeCost(epicItem, epicCost, epicUses));
+		return ret;
+	}
+
+	private static CostData makeCost(Item item, int count, int uses)
+	{
+		CostData ret = new CostData();
+		ret.maxUses = uses;
+		ItemStack stack = new ItemStack(item, count);
+		ret.costA = stack;
+		int max = stack.getMaxStackSize();
+		if (count > max)
+		{
+			stack.setCount(max);
+			int countB = count - max;
+			if (countB > max)
+				countB = max;
+			ret.costB = new ItemStack(item, countB);
+		}
+		return ret;
+	}
+
+	@SuppressWarnings("deprecation")
+	private static HashMap<Item, CostData> costMap(String[] values)
+	{
+		HashMap<Item, CostData> ret = new HashMap<>();
+		IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
+		for (String name : values)
+		{
+			CostData cost = new CostData();
+			int i = name.indexOf('=');
+			if (i < 0)
+			{
+				LOGGER.warn("Bad entry in ItemCost: " + name);
+				continue;
+			}
+			String part1 = name.substring(0, i).trim();
+			String part2 = name.substring(i + 1).trim();
+			if (!part2.isEmpty())
+			{
+				try {
+					// expected fields: itemA,countA[,itemB,countB][,maxUses]
+					String[] fs = part2.split(",");
+					int n = fs.length;
+					if (n < 2 || n > 5)
+					{
+						LOGGER.warn("Bad entry in ItemCost (fields): " + name);
+						continue;
+					}
+					cost.costA = parseStack(reg, fs[0], fs[1]);
+					if (n >= 4)
+						cost.costB = parseStack(reg, fs[2], fs[3]);
+					if (n == 3 || n == 5)
+						cost.maxUses = Integer.parseInt(fs[n - 1]);
+				}
+				catch (Exception e) {
+					LOGGER.warn("Bad entry in ItemCost (fields): " + name);
+				}
+			}
+			else
+				LOGGER.warn("Bad entry in ItemCost: " + name);
+			if (cost.costA == null || cost.costB == null)
+				continue;
+			if (part1.charAt(0) == '#')
+			{
+				try {
+					TagKey<Item> key = ItemTags.create(new ResourceLocation(part1.substring(1)));
+					anyTags = true;
+					if (tagsLoaded)
+					{
+						Optional<Named<Item>> opt = Registry.ITEM.getTag(key);
+						if (opt.isPresent())
+						{
+							for (Item item : processTag(opt.get()))
+								ret.put(item, cost);
+						}
+						else
+							LOGGER.warn("Unknown tag entry in ItemCost: " + part1);
+					}
+				}
+				catch (Exception e) {
+					LOGGER.warn("Bad tag entry in ItemCost: " + part1);
+				}
+				continue;
+			}
+			if (part1.endsWith(":*"))
+			{
+				expandMod(reg, ret, part1.substring(0, part1.length() - 2), cost);
+				continue;
+			}
+			List<String> list = expandItem(part1);
+			for (String entry : list)
+			{
+				try {
+					ResourceLocation key = new ResourceLocation(entry);
+					if (reg.containsKey(key))
+					{
+						Item item = reg.getValue(key);
+						ret.put(item, cost);
+					}
+					else
+						LOGGER.warn("Unknown entry in ItemCost: " + entry);
+				}
+				catch (Exception e) {
+					LOGGER.warn("Bad entry in ItemCost: " + entry);
+				}
+			}
+		}
+		return ret;
+	}
+
+	private static ItemStack parseStack(IForgeRegistry<Item> reg, String r, String c)
+	{
+		Item item = null;
+		int count = 0;
+		try {
+			ResourceLocation key = new ResourceLocation(r);
+			if (reg.containsKey(key))
+			{
+				item = reg.getValue(key);
+				count = Integer.parseInt(c);
+			}
+			else
+				LOGGER.warn("Unknown entry in ItemCost: " + r);
+		}
+		catch (Exception e) {
+			LOGGER.warn("Bad entry in ItemCost: " + r);
+		}
+		if (item == null || count <= 0)
+			return null;
+		ItemStack stack = new ItemStack(item, count);
+		int max = stack.getMaxStackSize();
+		if (count > max)
+		{
+			stack.setCount(max);
+			LOGGER.warn("Bad entry (count) in ItemCost: " + r);
+		}
+		return stack;
+	}
+
+	private static List<Item> processTag(Named<Item> named)
+	{
+		List<Item> ret = new ArrayList<>();
+		for (Holder<Item> o : named)
+			ret.add(o.value());
 		return ret;
 	}
 
@@ -432,11 +685,12 @@ public class MyConfig
 		}
 		else if (name.startsWith("eggset*"))
 		{
+			List<SpawnEggItem> allEggs = getAllEggs();
 			String mode = name.substring(7);
 			if (mode.equals("all"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.eggs())
+				for (SpawnEggItem e : allEggs)
 				{
 					ResourceLocation res = e.getRegistryName();
 					ret.add(res.toString());
@@ -445,7 +699,7 @@ public class MyConfig
 			else if (mode.equals("monster"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.eggs())
+				for (SpawnEggItem e : allEggs)
 				{
 					EntityType<?> type = e.getType(null);
 					if (type.getCategory().isFriendly())
@@ -457,7 +711,7 @@ public class MyConfig
 			else if (mode.equals("peaceful"))
 			{
 				ret.clear();
-				for (SpawnEggItem e : SpawnEggItem.eggs())
+				for (SpawnEggItem e : allEggs)
 				{
 					EntityType<?> type = e.getType(null);
 					if (!type.getCategory().isFriendly())
@@ -468,6 +722,29 @@ public class MyConfig
 			}
 		}
 		return ret;
+	}
+
+	private static void expandMod(IForgeRegistry<Item> reg, HashSet<Item> set, String name, String configName, boolean remove)
+	{
+		if (!ModList.get().isLoaded(name))
+		{
+			LOGGER.warn("Unknown mod entry in " + configName + ": " + name);
+			return;
+		}
+
+		if (remove)
+			set.removeIf(item -> name.equals(reg.getKey(item).getNamespace()));
+		else
+		{
+			for (Entry<ResourceKey<Item>, Item> entry : reg.getEntries())
+			{
+				if (name.equals(entry.getKey().location().getNamespace()))
+				{
+					Item item = entry.getValue();
+					set.add(item);
+				}
+			}
+		}
 	}
 
 	private static void expandMod(IForgeRegistry<Item> reg, HashMap<Item, Rarity> map, String name, Rarity newRarity)
@@ -492,6 +769,42 @@ public class MyConfig
 		}
 	}
 
+	private static void expandMod(IForgeRegistry<Item> reg, HashMap<Item, CostData> map, String name, CostData newCost)
+	{
+		if (!ModList.get().isLoaded(name))
+		{
+			LOGGER.warn("Unknown mod entry in ItemCost: " + name);
+			return;
+		}
+
+		for (Entry<ResourceKey<Item>, Item> entry : reg.getEntries())
+		{
+			if (name.equals(entry.getKey().location().getNamespace()))
+			{
+				Item item = entry.getValue();
+				map.put(item, newCost);
+			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private static List<SpawnEggItem> getAllEggs()
+	{
+		List<SpawnEggItem> ret = new ArrayList<>();
+		SpawnEggItem.eggs().forEach(ret::add);
+		try {
+			Field f = ForgeSpawnEggItem.class.getDeclaredField("MOD_EGGS");
+			f.setAccessible(true);
+			Object o = f.get(null);
+			if (o != null)
+				ret.addAll((List<ForgeSpawnEggItem>) o);
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+		}
+		return ret;
+	}
+
 	private static class ItemResult
 	{
 		public final ResourceLocation res;
@@ -504,11 +817,19 @@ public class MyConfig
 		}
 	}
 
+	public static class CostData
+	{
+		public ItemStack costA = null;
+		public ItemStack costB = ItemStack.EMPTY;
+		public int maxUses = 0;
+	}
+
 	public static class Common
 	{
 		public final BooleanValue restock;
 		public final BooleanValue fixed;
 		public final BooleanValue minable;
+		public final BooleanValue villages;
 		public final ConfigValue<String> commonItem;
 		public final ConfigValue<String> uncommonItem;
 		public final ConfigValue<String> rareItem;
@@ -526,9 +847,11 @@ public class MyConfig
 		public final ConfigValue<List<? extends String>> excludeMods;
 		public final ConfigValue<List<? extends String>> includeItems;
 		public final ConfigValue<List<? extends String>> excludeItems;
+		public final ConfigValue<List<? extends String>> addItems;
 		public final ConfigValue<List<? extends String>> includeGroups;
 		public final ConfigValue<List<? extends String>> excludeGroups;
 		public final ConfigValue<List<? extends String>> itemRarity;
+		public final ConfigValue<List<? extends String>> itemCost;
 
 		public Common(ForgeConfigSpec.Builder builder)
 		{
@@ -541,6 +864,7 @@ public class MyConfig
 					"minecraft:shulker_box", "minecraft:colorset*shulker_box", "minecraft:elytra", "minecraft:end_portal_frame",
 					"minecraft:armorset*netherite", "minecraft:toolset*netherite", "minecraft:netherite_block", "minecraft:netherite_ingot",
 					"vm:vending_machine");
+			List<String> addItemsList = Arrays.asList("");
 			List<String> includeGroupsList = Arrays.asList("*");
 			List<String> excludeGroupsList = Arrays.asList("!");
 			List<String> itemRarityList = Arrays.asList("minecraft:emerald_block=1", "minecraft:diamond_block=1",
@@ -548,6 +872,7 @@ public class MyConfig
 					"minecraft:bell=2", "minecraft:conduit=3", "minecraft:nautilus_shell=1", "eggset*peaceful=1", "eggset*monster=2",
 					"minecraft:evoker_spawn_egg=3", "minecraft:netherite_scrap=2", "minecraft:ancient_debris=2",
 					"minecraft:axolotl_bucket=1");
+			List<String> itemCostList = Arrays.asList("");
 			String baseTrans = Main.MODID + ".config.";
 			String sectionTrans;
 
@@ -566,6 +891,11 @@ public class MyConfig
 					.comment("Minable")
 					.translation(sectionTrans + "minable")
 					.define("Minable", false);
+
+			villages = builder
+					.comment("Add structure to Villages")
+					.translation(sectionTrans + "villages")
+					.define("Villages", true);
 
 			fixedItems = builder
 					.comment("Fixed items; item or item,amount,pay_item,cost,uses")
@@ -592,6 +922,11 @@ public class MyConfig
 					.translation(sectionTrans + "exclude_items")
 					.defineList("ExcludeItems", excludeItemsList, Common::isString);
 
+			addItems = builder
+					.comment("Add Items")
+					.translation(sectionTrans + "add_items")
+					.defineList("AddItems", addItemsList, Common::isString);
+
 			includeGroups = builder
 					.comment("Include Creative Tab Groups")
 					.translation(sectionTrans + "include_groups")
@@ -606,6 +941,11 @@ public class MyConfig
 					.comment("Change item rarity value for pricing")
 					.translation(sectionTrans + "item_rarity")
 					.defineList("ItemRarity", itemRarityList, Common::isString);
+
+			itemCost = builder
+					.comment("Custom item pricing")
+					.translation(sectionTrans + "item_cost")
+					.defineList("ItemCost", itemCostList, Common::isString);
 
 			builder.push("RarityData");
 			sectionTrans = baseTrans + ".rarity.";
@@ -629,19 +969,19 @@ public class MyConfig
 			commonCost = builder
 					.comment("Common Cost")
 					.translation(sectionTrans + "common_cost")
-					.defineInRange("CommonCost", 1, 0, 64);
+					.defineInRange("CommonCost", 1, 0, 128);
 			uncommonCost = builder
 					.comment("Uncommon Cost")
 					.translation(sectionTrans + "uncommon_cost")
-					.defineInRange("UncommonCost", 16, 0, 64);
+					.defineInRange("UncommonCost", 16, 0, 128);
 			rareCost = builder
 					.comment("Rare Cost")
 					.translation(sectionTrans + "rare_cost")
-					.defineInRange("RareCost", 32, 0, 64);
+					.defineInRange("RareCost", 32, 0, 128);
 			epicCost = builder
 					.comment("Epic Cost")
 					.translation(sectionTrans + "epic_cost")
-					.defineInRange("EpicCost", 64, 0, 64);
+					.defineInRange("EpicCost", 64, 0, 128);
 
 			commonUses = builder
 					.comment("Common Uses")
