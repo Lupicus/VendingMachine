@@ -13,6 +13,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.event.TagsUpdatedEvent;
+import net.minecraftforge.event.TagsUpdatedEvent.UpdateCause;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
@@ -37,7 +39,8 @@ public class Main
 	@SubscribeEvent
 	public void setupCommon(final FMLCommonSetupEvent event)
 	{
-		event.enqueueWork(() -> ModVillage.updatePools());
+		if (MyConfig.villages)
+			event.enqueueWork(() -> ModVillage.updatePools());
 	}
 
 	@OnlyIn(Dist.CLIENT)
@@ -63,5 +66,16 @@ public class Main
 	    	else if (key.equals(ForgeRegistries.Keys.SOUND_EVENTS))
 	    		ModSounds.register(event.getForgeRegistry());
 	    }
+	}
+
+	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+	public static class ForgeEvents
+	{
+		@SubscribeEvent
+		public static void onTags(final TagsUpdatedEvent event)
+		{
+			if (event.getUpdateCause() == UpdateCause.SERVER_DATA_LOAD)
+				MyConfig.updateTags();
+		}
 	}
 }
