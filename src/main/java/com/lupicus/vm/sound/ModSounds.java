@@ -19,6 +19,6 @@ public class ModSounds
 
 	public static void register(IForgeRegistry<SoundEvent> registry)
 	{
-		registry.register(VENDING_MACHINE_TAKE_RESULT.getLocation(), VENDING_MACHINE_TAKE_RESULT);
+		registry.register(VENDING_MACHINE_TAKE_RESULT.location(), VENDING_MACHINE_TAKE_RESULT);
 	}
 }

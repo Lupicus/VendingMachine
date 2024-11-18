@@ -144,6 +144,7 @@ public class MyConfig
 		itemCostMap = costMap(toArray(COMMON.itemCost.get()));
 		if (disableGroups)
 			updateItems();
+		changeId();
 	}
 
 	public static synchronized void bakeConfig()
@@ -187,8 +188,13 @@ public class MyConfig
 		validateGroups(excludeGroupSet, "ExcludeGroups");
 		if (disableGroups)
 			updateItems();
+		changeId();
+	}
+
+	private static void changeId()
+	{
 		loadId++;
-		if (loadId > 100)
+		if (loadId < 0)
 			loadId = 0;
 	}
 
@@ -365,7 +371,7 @@ public class MyConfig
 					anyTags = true;
 					if (tagsLoaded)
 					{
-						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.getTag(key);
+						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.get(key);
 						if (opt.isPresent())
 						{
 							List<Item> list = processTag(opt.get());
@@ -446,7 +452,7 @@ public class MyConfig
 					anyTags = true;
 					if (tagsLoaded)
 					{
-						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.getTag(key);
+						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.get(key);
 						if (opt.isPresent())
 						{
 							for (Item item : processTag(opt.get()))
@@ -562,7 +568,7 @@ public class MyConfig
 					anyTags = true;
 					if (tagsLoaded)
 					{
-						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.getTag(key);
+						Optional<Named<Item>> opt = BuiltInRegistries.ITEM.get(key);
 						if (opt.isPresent())
 						{
 							for (Item item : processTag(opt.get()))

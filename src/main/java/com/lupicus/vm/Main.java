@@ -15,12 +15,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
-import net.minecraftforge.event.TagsUpdatedEvent;
-import net.minecraftforge.event.TagsUpdatedEvent.UpdateCause;
+import net.minecraftforge.event.OnDatapackSyncEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -34,10 +32,10 @@ public class Main
 {
 	public static final String MODID = "vm";
 
-	public Main()
+	public Main(FMLJavaModLoadingContext context)
 	{
-		FMLJavaModLoadingContext.get().getModEventBus().register(this);
-		ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, MyConfig.COMMON_SPEC);
+		context.getModEventBus().register(this);
+		context.registerConfig(ModConfig.Type.COMMON, MyConfig.COMMON_SPEC);
 	}
 
 	@SubscribeEvent
@@ -49,6 +47,7 @@ public class Main
 	@SubscribeEvent
 	public void setupClient(final FMLClientSetupEvent event)
 	{
+		ModBlocks.setRenderLayer();
 	}
 
 	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
@@ -84,6 +83,7 @@ public class Main
 		{
 			if (MyConfig.villages)
 				ModVillage.updatePools(event.getServer());
+			MyConfig.updateTags();
 		}
 
 		@SubscribeEvent
@@ -94,9 +94,9 @@ public class Main
 		}
 
 		@SubscribeEvent
-		public static void onTags(final TagsUpdatedEvent event)
+		public static void onTags(final OnDatapackSyncEvent event)
 		{
-			if (event.getUpdateCause() == UpdateCause.SERVER_DATA_LOAD)
+			if (event.getPlayer() == null)
 				MyConfig.updateTags();
 		}
 	}

@@ -9,14 +9,13 @@ import java.util.Set;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.Holder.Reference;
-import net.minecraft.core.HolderLookup.RegistryLookup;
+import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.InstrumentTags;
 import net.minecraft.world.flag.FeatureFlagSet;
-import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.FireworkRocketItem;
 import net.minecraft.world.item.Instrument;
 import net.minecraft.world.item.InstrumentItem;
@@ -28,6 +27,7 @@ import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.Fireworks;
 import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.minecraft.world.level.block.LightBlock;
 import net.minecraft.world.level.block.SuspiciousEffectHolder;
@@ -37,10 +37,10 @@ public class MultiItems
 	public static void generate(Map<Item, Set<ItemStack>> multiItems, RegistryAccess regs, FeatureFlagSet fs)
 	{
 		Set<ItemStack> work = ItemStackLinkedSet.createTypeAndComponentsSet();
-		Optional<RegistryLookup<Enchantment>> orl = regs.lookup(Registries.ENCHANTMENT);
-		if (orl.isPresent())
+		Optional<Registry<Enchantment>> oreg = regs.lookup(Registries.ENCHANTMENT);
+		if (oreg.isPresent())
 		{
-			Iterator<Reference<Enchantment>> iter = orl.get().listElements().iterator();
+			Iterator<Reference<Enchantment>> iter = oreg.get().listElements().iterator();
 			Reference<Enchantment> ench;
 			Enchantment enchantment;
 			while (iter.hasNext())
@@ -49,7 +49,7 @@ public class MultiItems
 				enchantment = ench.value();
 				for (int i = enchantment.getMinLevel(); i <= enchantment.getMaxLevel(); ++i)
 				{
-					work.add(EnchantedBookItem.createForEnchantment(new EnchantmentInstance(ench, i)));
+					work.add(EnchantmentHelper.createBook(new EnchantmentInstance(ench, i)));
 				}
 			}
 			multiItems.put(Items.ENCHANTED_BOOK, work);
@@ -70,10 +70,14 @@ public class MultiItems
 		}
 		multiItems.put(Items.SUSPICIOUS_STEW, set);
 
-		work = new HashSet<>();
-		for (Holder<Instrument> holder : BuiltInRegistries.INSTRUMENT.getTagOrEmpty(InstrumentTags.GOAT_HORNS))
-			work.add(InstrumentItem.create(Items.GOAT_HORN, holder));
-		multiItems.put(Items.GOAT_HORN, work);
+		Optional<Registry<Instrument>> oreg2 = regs.lookup(Registries.INSTRUMENT);
+		if (oreg2.isPresent())
+		{
+			work = new HashSet<>();
+			for (Holder<Instrument> holder : oreg2.get().get(InstrumentTags.GOAT_HORNS).get())
+				work.add(InstrumentItem.create(Items.GOAT_HORN, holder));
+			multiItems.put(Items.GOAT_HORN, work);
+		}
 
 		work = new HashSet<>();
 		for (byte b0 : FireworkRocketItem.CRAFTABLE_DURATIONS)

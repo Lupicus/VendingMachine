@@ -28,7 +28,7 @@ public class ModVillage
 		String[] biomeList = {"plains", "snowy", "savanna", "desert", "taiga"};
 
 		RegistryAccess regs = server.registryAccess();
-		Optional<Registry<StructureTemplatePool>> opt = regs.registry(Registries.TEMPLATE_POOL);
+		Optional<Registry<StructureTemplatePool>> opt = regs.lookup(Registries.TEMPLATE_POOL);
 		if (opt.isEmpty())
 			return;
 
@@ -39,14 +39,14 @@ public class ModVillage
 			field.setAccessible(true);
 
 			Optional<Reference<StructureProcessorList>> opt3 = Optional.empty();
-			Optional<Registry<StructureProcessorList>> opt2 = regs.registry(Registries.PROCESSOR_LIST);
+			Optional<Registry<StructureProcessorList>> opt2 = regs.lookup(Registries.PROCESSOR_LIST);
 			if (opt2.isPresent())
-				opt3 = opt2.get().getHolder(ProcessorLists.MOSSIFY_10_PERCENT);
+				opt3 = opt2.get().get(ProcessorLists.MOSSIFY_10_PERCENT);
 
 			for (String biomeName : biomeList)
 			{
 				String baseName = "village/" + biomeName + "/houses";
-				StructureTemplatePool pattern = reg.get(ResourceLocation.parse("minecraft:" + baseName));
+				StructureTemplatePool pattern = reg.getValue(ResourceLocation.parse("minecraft:" + baseName));
 				if (pattern == null)
 					continue;
 
