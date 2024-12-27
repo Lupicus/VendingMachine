@@ -1,6 +1,5 @@
 package com.lupicus.vm.config;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -42,12 +41,12 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.SmithingTemplateItem;
 import net.minecraft.world.item.SpawnEggItem;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
 import net.minecraftforge.common.ForgeConfigSpec.IntValue;
-import net.minecraftforge.common.ForgeSpawnEggItem;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
@@ -359,12 +358,14 @@ public class MyConfig
 		for (String name : values)
 		{
 			boolean remove = false;
-			if (name.charAt(0) == '-')
+			char c = name.isEmpty() ? 0 : name.charAt(0);
+			if (c == '-')
 			{
 				remove = true;
 				name = name.substring(1);
+				c = name.isEmpty() ? 0 : name.charAt(0);
 			}
-			if (name.charAt(0) == '#')
+			if (c == '#')
 			{
 				try {
 					TagKey<Item> key = ItemTags.create(ResourceLocation.parse(name.substring(1)));
@@ -426,7 +427,7 @@ public class MyConfig
 		{
 			Rarity rarity = Rarity.COMMON;
 			int i = name.indexOf('=');
-			if (i < 0)
+			if (i <= 0)
 			{
 				LOGGER.warn("Bad entry in ItemRarity: " + name);
 				continue;
@@ -529,7 +530,7 @@ public class MyConfig
 		{
 			CostData cost = new CostData();
 			int i = name.indexOf('=');
-			if (i < 0)
+			if (i <= 0)
 			{
 				LOGGER.warn("Bad entry in ItemCost: " + name);
 				continue;
@@ -714,7 +715,9 @@ public class MyConfig
 		List<String> ret = new ArrayList<>();
 		ret.add(name);
 		int i = name.indexOf(':');
-		if (i >= 0 && name.indexOf('*') > 0)
+		if (name.indexOf('*') <= 0)
+			;
+		else if (i >= 0)
 		{
 			String ns = name.substring(0, i + 1);
 			String temp = name.substring(i + 1);
@@ -750,7 +753,7 @@ public class MyConfig
 		else if (name.startsWith("eggset*"))
 		{
 			IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
-			List<SpawnEggItem> allEggs = getAllEggs();
+			Iterable<SpawnEggItem> allEggs = SpawnEggItem.eggs();
 			String mode = name.substring(7);
 			if (mode.equals("all"))
 			{
@@ -766,7 +769,7 @@ public class MyConfig
 				ret.clear();
 				for (SpawnEggItem e : allEggs)
 				{
-					EntityType<?> type = e.getType(new ItemStack(e));
+					EntityType<?> type = e.getDefaultType();
 					if (type.getCategory().isFriendly())
 						continue;
 					ResourceLocation res = reg.getKey(e);
@@ -778,7 +781,7 @@ public class MyConfig
 				ret.clear();
 				for (SpawnEggItem e : allEggs)
 				{
-					EntityType<?> type = e.getType(new ItemStack(e));
+					EntityType<?> type = e.getDefaultType();
 					if (!type.getCategory().isFriendly())
 						continue;
 					ResourceLocation res = reg.getKey(e);
@@ -786,7 +789,41 @@ public class MyConfig
 				}
 			}
 		}
+		else if (name.startsWith("trim_template*"))
+		{
+			String mode = name.substring(14);
+			Rarity rarity = toRarity(mode);
+			if (rarity != null || mode.equals("all"))
+			{
+				ret.clear();
+				IForgeRegistry<Item> reg = ForgeRegistries.ITEMS;
+				for (Item item : reg)
+				{
+					if (item instanceof SmithingTemplateItem)
+					{
+						ResourceLocation res = reg.getKey(item);
+						if (res.getPath().contains("armor_trim"))
+						{
+							if (rarity == null || item.components().getOrDefault(DataComponents.RARITY, Rarity.COMMON) == rarity)
+								ret.add(res.toString());
+						}
+					}
+				}
+			}
+		}
 		return ret;
+	}
+
+	private static Rarity toRarity(String mode)
+	{
+		Rarity rarity = switch (mode) {
+		case "epic" -> Rarity.EPIC;
+		case "rare" -> Rarity.RARE;
+		case "uncommon" -> Rarity.UNCOMMON;
+		case "common" -> Rarity.COMMON;
+		default -> null;
+		};
+		return rarity;
 	}
 
 	private static void expandMod(IForgeRegistry<Item> reg, HashSet<Item> set, String name, String configName, boolean remove)
@@ -852,24 +889,6 @@ public class MyConfig
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	private static List<SpawnEggItem> getAllEggs()
-	{
-		List<SpawnEggItem> ret = new ArrayList<>();
-		SpawnEggItem.eggs().forEach(ret::add);
-		try {
-			Field f = ForgeSpawnEggItem.class.getDeclaredField("MOD_EGGS");
-			f.setAccessible(true);
-			Object o = f.get(null);
-			if (o != null)
-				ret.addAll((List<ForgeSpawnEggItem>) o);
-		}
-		catch (Exception e) {
-			e.printStackTrace();
-		}
-		return ret;
-	}
-
 	private static class ItemResult
 	{
 		public final ResourceLocation res;
@@ -929,7 +948,7 @@ public class MyConfig
 					"minecraft:shulker_box", "minecraft:colorset*shulker_box", "minecraft:elytra", "minecraft:end_portal_frame",
 					"minecraft:armorset*netherite", "minecraft:toolset*netherite", "minecraft:netherite_block", "minecraft:netherite_ingot",
 					"minecraft:spawner", "minecraft:trial_spawner", "minecraft:netherite_upgrade_smithing_template",
-					"#minecraft:trim_templates", "-minecraft:coast_armor_trim_smithing_template", "minecraft:vault",
+					"trim_template*all", "-minecraft:coast_armor_trim_smithing_template", "minecraft:vault",
 					"vm:vending_machine");
 			List<String> addItemsList = Arrays.asList("");
 			List<String> includeGroupsList = Arrays.asList("*");

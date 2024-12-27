@@ -25,6 +25,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.Container;
 import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.flag.FeatureFlagSet;
@@ -216,6 +217,12 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	@Override
 	public boolean isClientSide() {
 		return level.isClientSide;
+	}
+
+
+	@Override
+	public boolean stillValid(Player player) {
+		return customer == player && Container.stillValidBlockEntity(this, player);
 	}
 
 	public void setCustomName(Component name) {

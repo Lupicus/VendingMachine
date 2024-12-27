@@ -16,13 +16,13 @@ import net.minecraftforge.registries.IForgeRegistry;
 
 public class ModItems
 {
-	public static final Item VENDING_MACHINE = create(ModBlocks.VENDING_MACHINE, BlockItem::new, new Properties().rarity(Rarity.RARE));
+	public static final Item VENDING_MACHINE = register(ModBlocks.VENDING_MACHINE, BlockItem::new, new Properties().rarity(Rarity.RARE));
 
 	public static void register(IForgeRegistry<Item> forgeRegistry)
 	{
 	}
 
-	private static Item create(Block block, BiFunction<Block, Properties, Item> func, Properties prop)
+	private static Item register(Block block, BiFunction<Block, Properties, Item> func, Properties prop)
 	{
 		return Items.registerBlock(block, func, prop);
 	}

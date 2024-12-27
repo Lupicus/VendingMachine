@@ -1,14 +1,14 @@
 {
-	"parent": "block/block",
-	"render_type": "cutout",
-	"textures": {
-    	"particle": "vm:block/vending_machine_top",
-    	"front": "vm:block/vending_machine_top",
-    	"glass": "minecraft:block/glass",
-    	"side": "vm:block/vending_machine_top_side",
-    	"side1": "vm:block/vending_machine_side1",
-    	"back": "vm:block/vending_machine_top_back"
-	},
+    "parent": "block/block",
+    "render_type": "cutout",
+    "textures": {
+        "particle": "vm:block/vending_machine_top",
+        "front": "vm:block/vending_machine_top",
+        "glass": "minecraft:block/glass",
+        "side": "vm:block/vending_machine_top_side",
+        "side1": "vm:block/vending_machine_side1",
+        "back": "vm:block/vending_machine_top_back"
+    },
     "elements": [
         {   "from": [ 0, 0, 0 ],
             "to": [ 16, 16, 16 ],

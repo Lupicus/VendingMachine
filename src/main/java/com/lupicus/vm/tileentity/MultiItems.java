@@ -26,6 +26,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.Fireworks;
+import net.minecraft.world.item.component.OminousBottleAmplifier;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
@@ -36,7 +37,7 @@ public class MultiItems
 {
 	public static void generate(Map<Item, Set<ItemStack>> multiItems, RegistryAccess regs, FeatureFlagSet fs)
 	{
-		Set<ItemStack> work = ItemStackLinkedSet.createTypeAndComponentsSet();
+		Set<ItemStack> work = new HashSet<>();
 		Optional<Registry<Enchantment>> oreg = regs.lookup(Registries.ENCHANTMENT);
 		if (oreg.isPresent())
 		{
@@ -60,15 +61,24 @@ public class MultiItems
 		addPotionEffects(multiItems, Items.SPLASH_POTION, fs);
 		addPotionEffects(multiItems, Items.LINGERING_POTION, fs);
 
+		work = new HashSet<>();
+        for (int i = 0; i <= 4; i++)
+        {
+            ItemStack itemstack = new ItemStack(Items.OMINOUS_BOTTLE);
+            itemstack.set(DataComponents.OMINOUS_BOTTLE_AMPLIFIER, new OminousBottleAmplifier(i));
+            work.add(itemstack);
+        }
+        multiItems.put(Items.OMINOUS_BOTTLE, work);
+
 		List<SuspiciousEffectHolder> list = SuspiciousEffectHolder.getAllEffectHolders();
-		Set<ItemStack> set = ItemStackLinkedSet.createTypeAndComponentsSet();
+		work = ItemStackLinkedSet.createTypeAndComponentsSet();
 		for (SuspiciousEffectHolder suspiciouseffectholder : list)
 		{
 			ItemStack itemstack = new ItemStack(Items.SUSPICIOUS_STEW);
 			itemstack.set(DataComponents.SUSPICIOUS_STEW_EFFECTS, suspiciouseffectholder.getSuspiciousEffects());
-			set.add(itemstack);
+			work.add(itemstack);
 		}
-		multiItems.put(Items.SUSPICIOUS_STEW, set);
+		multiItems.put(Items.SUSPICIOUS_STEW, work);
 
 		Optional<Registry<Instrument>> oreg2 = regs.lookup(Registries.INSTRUMENT);
 		if (oreg2.isPresent())
