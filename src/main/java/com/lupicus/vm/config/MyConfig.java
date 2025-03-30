@@ -110,9 +110,12 @@ public class MyConfig
 	@SubscribeEvent
 	public static void onModConfigEvent(final ModConfigEvent configEvent)
 	{
+		if (configEvent instanceof ModConfigEvent.Unloading)
+			return;
 		if (configEvent.getConfig().getSpec() == MyConfig.COMMON_SPEC)
 		{
-			bakeConfig();
+			if (MyConfig.COMMON_SPEC.isLoaded())
+				bakeConfig();
 		}
 	}
 
@@ -957,7 +960,7 @@ public class MyConfig
 					"minecraft:armorset*diamond=1", "minecraft:toolset*diamond=1", "minecraft:anvil=2", "minecraft:trident=3",
 					"minecraft:bell=2", "minecraft:conduit=3", "minecraft:nautilus_shell=1", "eggset*peaceful=1", "eggset*monster=2",
 					"minecraft:evoker_spawn_egg=3", "minecraft:warden_spawn_egg=3", "minecraft:netherite_scrap=2",
-					"minecraft:ancient_debris=2", "minecraft:axolotl_bucket=1", "minecraft:echo_shard=3", "minecraft:lodestone=3",
+					"minecraft:ancient_debris=2", "minecraft:axolotl_bucket=1", "minecraft:echo_shard=3",
 					"minecraft:respawn_anchor=1", "minecraft:coast_armor_trim_smithing_template=3",
 					"#minecraft:decorated_pot_sherds=1", "minecraft:arms_up_pottery_sherd=0", "minecraft:trial_key=1",
 					"minecraft:ominous_trial_key=2");

@@ -22,6 +22,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -76,13 +77,12 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		super.loadAdditional(compound, hp);
 		if (!enabled)
 			return;
-		stockTime = compound.getLong("stockTime");
-		fixed = compound.getBoolean("fixed");
+		stockTime = compound.getLongOr("stockTime", 0L);
+		fixed = compound.getBooleanOr("fixed", false);
 		offers = readOffers(compound, hp);
 		if (offers.isEmpty())
 			offers = null;
-		if (compound.contains("CustomName", 8))
-			customName = parseCustomNameSafe(compound.getString("CustomName"), hp);
+		customName = parseCustomNameSafe(compound.get("CustomName"), hp);
 	}
 
 	@Override
@@ -96,7 +96,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		if (offers != null)
 			compound.merge(getNbtOffers(hp));
 		if (customName != null)
-			compound.putString("CustomName", Component.Serializer.toJson(customName, hp));
+			compound.store("CustomName", ComponentSerialization.CODEC, hp.createSerializationContext(NbtOps.INSTANCE), customName);
 	}
 
 	public void readMined(CompoundTag compound)
@@ -105,7 +105,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		{
 			stockTime = level.getDayTime();
 			stockTime -= Math.abs(stockTime % DAY);
-			fixed = compound.getBoolean("fixed");
+			fixed = compound.getBooleanOr("fixed", false);
 			offers = readOffers(compound, level.registryAccess());
 			if (offers.isEmpty())
 				offers = null;

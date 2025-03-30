@@ -10,6 +10,8 @@
     "minecraft:light",
     "minecraft:repeating_command_block",
     "minecraft:structure_block",
-    "minecraft:structure_void"
+    "minecraft:structure_void",
+    "minecraft:test_block",
+    "minecraft:test_instance_block"
   ]
 }

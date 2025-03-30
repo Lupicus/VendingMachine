@@ -14,6 +14,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -23,6 +24,8 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Explosion;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RenderShape;
@@ -41,6 +44,7 @@ public class VendingMachine extends RotateContainerBase
 	public static final MapCodec<VendingMachine> CODEC = simpleCodec(VendingMachine::new);
 	public static final BooleanProperty BOTTOM = BlockStateProperties.BOTTOM;
 	// save temp values to support drops (should be okay for main server thread only)
+	private boolean skipDrop = false;
 	private BlockEntity saveTE;
 	private BlockState saveState;
 
@@ -112,15 +116,17 @@ public class VendingMachine extends RotateContainerBase
 	}
 
 	@Override
-	public void onRemove(BlockState state, Level worldIn, BlockPos pos, BlockState newState, boolean isMoving)
+	protected BlockState updateShape(BlockState state, LevelReader worldIn, ScheduledTickAccess sta,
+			BlockPos pos, Direction dir, BlockPos pos2, BlockState state2, RandomSource rand)
 	{
-		if (!worldIn.isClientSide && state.getBlock() != newState.getBlock())
+		Direction dir2 = state.getValue(BOTTOM) ? Direction.UP : Direction.DOWN;
+		if (dir == dir2 && !state2.is(this))
 		{
-			BlockPos pos2 = pos.relative(state.getValue(BOTTOM) ? Direction.UP : Direction.DOWN);
-			if (worldIn.getBlockState(pos2).getBlock() == this)
-				worldIn.setBlock(pos2, Blocks.AIR.defaultBlockState(), 3);
+			if (!worldIn.isClientSide())
+				skipDrop = true;
+			return Blocks.AIR.defaultBlockState();
 		}
-		super.onRemove(state, worldIn, pos, newState, isMoving);
+		return super.updateShape(state, worldIn, sta, pos, dir, pos2, state2, rand);
 	}
 
 	@Override
@@ -130,6 +136,7 @@ public class VendingMachine extends RotateContainerBase
 		boolean flag = !world.isClientSide;
 		if (flag)
 		{
+			skipDrop = false;
 			saveTE = null;
 			if (!state.getValue(BOTTOM))
 				saveMainBlock(world, pos);
@@ -145,6 +152,7 @@ public class VendingMachine extends RotateContainerBase
 	{
 		if (world instanceof ServerLevel)
 		{
+			skipDrop = false;
 			saveTE = null;
 			if (!state.getValue(BOTTOM))
 				saveMainBlock(world, pos);
@@ -156,7 +164,7 @@ public class VendingMachine extends RotateContainerBase
 	{
 		BlockPos blockpos = pos.relative(Direction.DOWN);
 		BlockState blockstate = world.getBlockState(blockpos);
-		if (blockstate.getBlock() == this && blockstate.getValue(BOTTOM))
+		if (blockstate.is(this) && blockstate.getValue(BOTTOM))
 		{
 			saveTE = world.getBlockEntity(blockpos);
 			saveState = blockstate;
@@ -166,6 +174,11 @@ public class VendingMachine extends RotateContainerBase
 	@Override
 	public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder)
 	{
+		if (skipDrop)
+		{
+			skipDrop = false;
+			return Collections.emptyList();
+		}
 		if (saveTE != null)
 		{
 			builder.withOptionalParameter(LootContextParams.BLOCK_ENTITY, saveTE);

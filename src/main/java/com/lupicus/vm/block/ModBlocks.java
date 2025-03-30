@@ -41,7 +41,7 @@ public class ModBlocks
 	}
 
 	@OnlyIn(Dist.CLIENT)
-	@SuppressWarnings("deprecation")
+	@SuppressWarnings("removal")
 	public static void setRenderLayer()
 	{
 		ItemBlockRenderTypes.setRenderLayer(VENDING_MACHINE, RenderType.cutout());
