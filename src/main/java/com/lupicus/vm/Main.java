@@ -12,17 +12,13 @@ import com.lupicus.vm.world.ModVillage;
 
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.OnDatapackSyncEvent;
 import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegisterEvent;
@@ -34,20 +30,7 @@ public class Main
 
 	public Main(FMLJavaModLoadingContext context)
 	{
-		context.getModEventBus().register(this);
 		context.registerConfig(ModConfig.Type.COMMON, MyConfig.COMMON_SPEC);
-	}
-
-	@SubscribeEvent
-	public void setupCommon(final FMLCommonSetupEvent event)
-	{
-	}
-
-	@OnlyIn(Dist.CLIENT)
-	@SubscribeEvent
-	public void setupClient(final FMLClientSetupEvent event)
-	{
-		ModBlocks.setRenderLayer();
 	}
 
 	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)

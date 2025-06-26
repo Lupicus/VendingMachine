@@ -47,7 +47,7 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
 import net.minecraftforge.common.ForgeConfigSpec.IntValue;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
@@ -963,7 +963,7 @@ public class MyConfig
 					"minecraft:ancient_debris=2", "minecraft:axolotl_bucket=1", "minecraft:echo_shard=3",
 					"minecraft:respawn_anchor=1", "minecraft:coast_armor_trim_smithing_template=3",
 					"#minecraft:decorated_pot_sherds=1", "minecraft:arms_up_pottery_sherd=0", "minecraft:trial_key=1",
-					"minecraft:ominous_trial_key=2");
+					"minecraft:ominous_trial_key=2", "minecraft:dried_ghast=1");
 			List<String> itemCostList = Arrays.asList("");
 			String baseTrans = Main.MODID + ".config.";
 			String sectionTrans;
