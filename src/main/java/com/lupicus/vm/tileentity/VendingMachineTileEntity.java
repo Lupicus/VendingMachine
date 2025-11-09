@@ -19,9 +19,7 @@ import net.minecraft.core.HolderLookup.Provider;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.sounds.SoundEvent;
@@ -77,7 +75,6 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 	}
 
 	@Override
-	@SuppressWarnings("deprecation")
 	public void loadAdditional(ValueInput input)
 	{
 		super.loadAdditional(input);
@@ -85,17 +82,13 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 			return;
 		stockTime = input.getLongOr("stockTime", 0L);
 		fixed = input.getBooleanOr("fixed", false);
-		String offersKey = "Recipes";
-		CompoundTag nbt = new CompoundTag();
-		Optional<TypedInputList<CompoundTag>> inListOpt = input.list(offersKey, CompoundTag.CODEC);
+		offers = new MerchantOffers();
+		Optional<TypedInputList<MerchantOffer>> inListOpt = input.list("Recipes", MerchantOffer.CODEC);
 		if (inListOpt.isPresent())
 		{
-			ListTag listTag = new ListTag();
-			for (CompoundTag cTag : inListOpt.get())
-				listTag.add(cTag);
-			nbt.put(offersKey, listTag);
+			for (MerchantOffer trade : inListOpt.get())
+				offers.add(trade);
 		}
-		offers = readOffers(nbt, input.lookup());
 		if (offers.isEmpty())
 			offers = null;
 		customName = parseCustomNameSafe(input, "CustomName");
@@ -111,16 +104,9 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 		output.putBoolean("fixed", fixed);
 		if (offers != null)
 		{
-			String offersKey = "Recipes";
-			CompoundTag nbt = getNbtOffers(level.registryAccess());
-			Optional<ListTag> inListOpt = nbt.getList(offersKey);
-			if (inListOpt.isPresent())
-			{
-				TypedOutputList<CompoundTag> outList = output.list(offersKey, CompoundTag.CODEC);
-				for (Tag tag : inListOpt.get())
-					if (tag instanceof CompoundTag cTag)
-						outList.add(cTag);
-			}
+			TypedOutputList<MerchantOffer> outList = output.list("Recipes", MerchantOffer.CODEC);
+			for (MerchantOffer trade : offers)
+				outList.add(trade);
 		}
 		output.storeNullable("CustomName", ComponentSerialization.CODEC, customName);
 	}
@@ -242,7 +228,7 @@ public class VendingMachineTileEntity extends BlockEntity implements Merchant, N
 
 	@Override
 	public boolean isClientSide() {
-		return level.isClientSide;
+		return level.isClientSide();
 	}
 
 

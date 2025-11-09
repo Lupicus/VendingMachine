@@ -83,23 +83,25 @@ public class VendingMachine extends RotateContainerBase
 	public InteractionResult useWithoutItem(BlockState state, Level worldIn, BlockPos pos, Player player,
 			BlockHitResult hit)
 	{
-		if (!worldIn.isClientSide)
+		if (!worldIn.isClientSide())
 		{
 			if (!state.getValue(BOTTOM))
 				pos = pos.below();
 			BlockEntity te = worldIn.getBlockEntity(pos);
-			if (te instanceof VendingMachineTileEntity)
-				((VendingMachineTileEntity) te).openGui(player);
+			if (te instanceof VendingMachineTileEntity vte)
+			{
+				if (vte.getTradingPlayer() == null)
+					vte.openGui(player);
+			}
 		}
 		return InteractionResult.SUCCESS;
 	}
 
-	@SuppressWarnings("deprecation")
 	@Override
 	public void setPlacedBy(Level worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack)
 	{
 		super.setPlacedBy(worldIn, pos, state, placer, stack);
-		if (!worldIn.isClientSide)
+		if (!worldIn.isClientSide())
 		{
 			worldIn.setBlock(pos.above(), state.setValue(BOTTOM, false), 3);
 			BlockEntity te = worldIn.getBlockEntity(pos);
@@ -108,7 +110,7 @@ public class VendingMachine extends RotateContainerBase
 				VendingMachineTileEntity vte = (VendingMachineTileEntity) te;
 				CustomData data = stack.get(DataComponents.CUSTOM_DATA);
 				if (data != null)
-					vte.readMined(data.getUnsafe());
+					vte.readMined(data.copyTag());
 				if (stack.has(DataComponents.CUSTOM_NAME))
 					vte.setCustomName(stack.getHoverName());
 			}
@@ -133,7 +135,7 @@ public class VendingMachine extends RotateContainerBase
 	public boolean onDestroyedByPlayer(BlockState state, Level world, BlockPos pos, Player player,
 			boolean willHarvest, FluidState fluid)
 	{
-		boolean flag = !world.isClientSide;
+		boolean flag = !world.isClientSide();
 		if (flag)
 		{
 			skipDrop = false;

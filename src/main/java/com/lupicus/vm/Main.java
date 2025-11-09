@@ -18,6 +18,7 @@ import net.minecraftforge.event.server.ServerAboutToStartEvent;
 import net.minecraftforge.event.server.ServerStoppedEvent;
 import net.minecraftforge.eventbus.api.listener.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -33,32 +34,26 @@ public class Main
 		context.registerConfig(ModConfig.Type.COMMON, MyConfig.COMMON_SPEC);
 	}
 
-	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+	@Mod.EventBusSubscriber(bus = Bus.MOD)
 	public static class ModEvents
 	{
-	    @SubscribeEvent
-	    public static void onRegister(final RegisterEvent event)
-	    {
-	    	@NotNull
+		@SubscribeEvent
+		public static void onRegister(final RegisterEvent event)
+		{
+			@NotNull
 			ResourceKey<? extends Registry<?>> key = event.getRegistryKey();
-	    	if (key.equals(ForgeRegistries.Keys.BLOCKS))
-	    		ModBlocks.register(event.getForgeRegistry());
-	    	else if (key.equals(ForgeRegistries.Keys.ITEMS))
-	    		ModItems.register(event.getForgeRegistry());
-	    	else if (key.equals(ForgeRegistries.Keys.BLOCK_ENTITY_TYPES))
-	    		ModTileEntities.register(event.getForgeRegistry());
-	    	else if (key.equals(ForgeRegistries.Keys.SOUND_EVENTS))
-	    		ModSounds.register(event.getForgeRegistry());
-	    }
-
-	    @SubscribeEvent
-	    public static void onCreativeTab(BuildCreativeModeTabContentsEvent event)
-	    {
-	    	ModItems.setupTabs(event);
-	    }
+			if (key.equals(ForgeRegistries.Keys.BLOCKS))
+				ModBlocks.register(event.getForgeRegistry());
+			else if (key.equals(ForgeRegistries.Keys.ITEMS))
+				ModItems.register(event.getForgeRegistry());
+			else if (key.equals(ForgeRegistries.Keys.BLOCK_ENTITY_TYPES))
+				ModTileEntities.register(event.getForgeRegistry());
+			else if (key.equals(ForgeRegistries.Keys.SOUND_EVENTS))
+				ModSounds.register(event.getForgeRegistry());
+		}
 	}
 
-	@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+	@Mod.EventBusSubscriber(bus = Bus.FORGE)
 	public static class ForgeEvents
 	{
 		@SubscribeEvent
@@ -81,6 +76,12 @@ public class Main
 		{
 			if (event.getPlayer() == null)
 				MyConfig.updateTags();
+		}
+
+		@SubscribeEvent
+		public static void onCreativeTab(BuildCreativeModeTabContentsEvent event)
+		{
+			ModItems.setupTabs(event);
 		}
 	}
 }

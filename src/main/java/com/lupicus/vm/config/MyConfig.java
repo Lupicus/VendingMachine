@@ -43,6 +43,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.SmithingTemplateItem;
 import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.item.component.TypedEntityData;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
 import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
@@ -772,8 +773,8 @@ public class MyConfig
 				ret.clear();
 				for (SpawnEggItem e : allEggs)
 				{
-					EntityType<?> type = e.getDefaultType();
-					if (type.getCategory().isFriendly())
+					TypedEntityData<EntityType<?>> typedata = e.components().get(DataComponents.ENTITY_DATA);
+					if (typedata == null || typedata.type().getCategory().isFriendly())
 						continue;
 					ResourceLocation res = reg.getKey(e);
 					ret.add(res.toString());
@@ -784,8 +785,8 @@ public class MyConfig
 				ret.clear();
 				for (SpawnEggItem e : allEggs)
 				{
-					EntityType<?> type = e.getDefaultType();
-					if (!type.getCategory().isFriendly())
+					TypedEntityData<EntityType<?>> typedata = e.components().get(DataComponents.ENTITY_DATA);
+					if (typedata == null || !typedata.type().getCategory().isFriendly())
 						continue;
 					ResourceLocation res = reg.getKey(e);
 					ret.add(res.toString());

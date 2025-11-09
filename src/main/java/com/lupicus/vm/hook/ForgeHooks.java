@@ -6,7 +6,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackLinkedSet;
 import net.minecraftforge.common.util.MutableHashedLinkedMap;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
-import net.minecraftforge.fml.ModLoader;
 
 public class ForgeHooks
 {
@@ -28,7 +27,7 @@ public class ForgeHooks
             entries.put(stack, vis);
         });
 
-        ModLoader.get().postEvent(new BuildCreativeModeTabContentsEvent(tab, tabKey, params, entries));
+        BuildCreativeModeTabContentsEvent.BUS.post(new BuildCreativeModeTabContentsEvent(tab, tabKey, params, entries));
 
         for (var entry : entries)
             output.accept(entry.getKey(), entry.getValue());
